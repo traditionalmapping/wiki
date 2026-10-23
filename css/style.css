@@ -1,0 +1,43 @@
+html, body { margin: 0; height: 100%; background: #0e0e0e; }
+#map { position: absolute; inset: 0; }
+
+.basemap-switch {
+  display: flex;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+  font: 13px/1 system-ui, sans-serif;
+}
+.basemap-switch button {
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+}
+.basemap-switch button + button { border-left: 1px solid #333; }
+.basemap-switch button:hover { color: #fff; }
+.basemap-switch button:focus-visible { outline: 2px solid #6aa9ff; outline-offset: -2px; }
+.basemap-switch button.active { background: #2e2e2e; color: #fff; }
+
+/* White cross at the center of the screen */
+.crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.crosshair::before,
+.crosshair::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.9); /* keeps it visible on the light OSM map */
+}
+.crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+.crosshair::after  { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
