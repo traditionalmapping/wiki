@@ -41,3 +41,31 @@ html, body { margin: 0; height: 100%; background: #0e0e0e; }
 }
 .crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
 .crosshair::after  { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+/* Coordinates panel, left of the zoom controls */
+.coords {
+  position: absolute;
+  top: 10px;
+  right: 50px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #ddd;
+  font: 13px/1 ui-monospace, Consolas, monospace;
+}
+.coords button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: #2e2e2e;
+  color: #fff;
+  font: 12px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.coords button:hover { background: #3a3a3a; }
+.coords button:focus-visible { outline: 2px solid #6aa9ff; }

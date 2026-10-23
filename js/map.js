@@ -68,15 +68,62 @@ async function setBasemap(id) {
     container: 'map',
     style,
     center: [31.5, 48.8],
-    zoom: 3,
+    zoom: 5.5,
     minZoom: 2,
     maxZoom: 18,
+    maxPitch: 60,
+    pitchWithRotate: false, // built-in tilt is too fast; replaced by slower tilt below
+    touchPitch: false,
     attributionControl: { compact: true }
   });
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
   map.addControl(basemapControl, 'top-left');
+
+
+  // --- Slower tilt: right-drag (or Ctrl+drag) up/down. Left/right still rotates. ---
+  const TILT_SPEED = 0.15; // degrees per pixel (lower = slower)
+  let tilt = null;
+  const canvasBox = map.getCanvasContainer();
+  canvasBox.addEventListener('mousedown', e => {
+    if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
+      tilt = { y: e.clientY, pitch: map.getPitch() };
+    }
+  });
+  window.addEventListener('mousemove', e => {
+    if (!tilt) return;
+    const p = tilt.pitch + (e.clientY - tilt.y) * TILT_SPEED;
+    map.setPitch(Math.max(0, Math.min(60, p)));
+  });
+  window.addEventListener('mouseup', () => { tilt = null; });
+
+  // --- Coordinates panel (center of the screen = the cross) ---
+  const coordsText = document.getElementById('coords-text');
+  const copyBtn = document.getElementById('coords-copy');
+  const fmt = () => {
+    const c = map.getCenter();
+    return c.lat.toFixed(5) + ', ' + c.lng.toFixed(5); // lat, lng
+  };
+  const updateCoords = () => { coordsText.textContent = fmt(); };
+  map.on('move', updateCoords);
+  updateCoords();
+
+  copyBtn.addEventListener('click', async () => {
+    const text = fmt();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      const t = document.createElement('textarea'); // fallback (e.g. file://)
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      t.remove();
+    }
+    copyBtn.textContent = 'Copied';
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+  });
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => console.error('Map error:', e.error || e));
