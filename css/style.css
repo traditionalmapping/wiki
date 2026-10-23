@@ -69,3 +69,45 @@ html, body { margin: 0; height: 100%; background: #0e0e0e; }
 }
 .coords button:hover { background: #3a3a3a; }
 .coords button:focus-visible { outline: 2px solid #6aa9ff; }
+
+/* Search, top-left */
+.search { position: relative; width: 240px; max-width: calc(100vw - 160px); }
+
+/* Top-left controls sit in one row: Dark/OSM, then search */
+.maplibregl-ctrl-top-left { display: flex; align-items: flex-start; }
+.maplibregl-ctrl-top-left .maplibregl-ctrl { float: none; clear: none; }
+.search input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 12px;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font: 13px/1.2 system-ui, sans-serif;
+}
+.search input::placeholder { color: #888; }
+.search input:focus-visible { outline: 2px solid #6aa9ff; outline-offset: -1px; }
+.search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 6px;
+  font: 13px/1.3 system-ui, sans-serif;
+  color: #ddd;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.search-results[hidden] { display: none; }
+.search-results li { padding: 8px 12px; cursor: pointer; }
+.search-results li:hover,
+.search-results li.active { background: #2e2e2e; color: #fff; }
+.search-results li.empty { color: #888; cursor: default; }
+.search-results li.empty:hover { background: transparent; color: #888; }
