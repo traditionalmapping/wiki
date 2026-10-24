@@ -125,6 +125,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '41.89563, 12.48847',
+    name: 'Roma',
+    videos: [
+      { title: 'World War II - Italian Campaign (1943-1945): Every Day Map', url: 'https://www.youtube.com/watch?v=xb8RNYXwd4E', date: '1943-06-11 / 1945-05-08' }
+    ]
+  },
+  {
     coords: '56.95047, 24.11333',
     name: 'Riga',
     videos: [
