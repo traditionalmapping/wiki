@@ -14,9 +14,37 @@
     <button type="button" id="coords-copy" title="Copy coordinates of the cross">Copy</button>
   </div>
   <div class="crosshair" aria-hidden="true"></div>
+  <div id="menu" class="menu" role="dialog" aria-labelledby="menu-title">
+    <div class="menu-inner">
+      <h1 id="menu-title">Periods</h1>
+      <p class="menu-sub">Traditional Mapping Wiki</p>
+      <div class="menu-grid">
+        <button type="button" class="period" disabled>
+          <span class="period-name">WW1</span>
+          <span class="period-dates">1914 – 1918</span>
+          <span class="period-badge">WIP</span>
+        </button>
+        <button type="button" class="period period-open" id="open-ww2">
+          <span class="period-name">WW2</span>
+          <span class="period-dates">1939 – 1945</span>
+        </button>
+        <button type="button" class="period" disabled>
+          <span class="period-name">Cold War</span>
+          <span class="period-dates">1947 – 1991</span>
+          <span class="period-badge">WIP</span>
+        </button>
+        <button type="button" class="period period-wide" disabled>
+          <span class="period-name">Modern Wars</span>
+          <span class="period-dates">1991 – today</span>
+          <span class="period-badge">WIP</span>
+        </button>
+      </div>
+    </div>
+  </div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="js/basemaps.js"></script>
   <script src="js/search.js"></script>
+  <script src="js/menu.js"></script>
   <script src="js/map.js"></script>
 </body>
 </html>

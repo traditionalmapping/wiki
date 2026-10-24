@@ -111,3 +111,96 @@ html, body { margin: 0; height: 100%; background: #0e0e0e; }
 .search-results li.active { background: #2e2e2e; color: #fff; }
 .search-results li.empty { color: #888; cursor: default; }
 .search-results li.empty:hover { background: transparent; color: #888; }
+
+/* ---------- Start menu ---------- */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse at 50% 35%, #1b1b1d 0%, #0e0e0e 65%);
+  color: #eee;
+  transition: opacity .35s ease, visibility .35s;
+}
+.menu.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+body.menu-open .crosshair { visibility: hidden; }
+
+.menu-inner { width: 100%; max-width: 720px; text-align: center; }
+.menu h1 {
+  margin: 0;
+  font: 400 clamp(34px, 7vw, 56px)/1.1 Georgia, 'Times New Roman', serif;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  padding-left: .28em; /* balances the trailing letter-spacing */
+}
+.menu-sub {
+  margin: 10px 0 36px;
+  font: 13px/1 system-ui, sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #777;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.period {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 26px 12px 22px;
+  background: #151515;
+  border: 2px solid #f2f2f2;
+  border-radius: 6px;
+  color: #f2f2f2;
+  font-family: Georgia, 'Times New Roman', serif;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.period-name { font-size: clamp(20px, 3.4vw, 28px); letter-spacing: .04em; }
+.period-dates { font: 12px/1 system-ui, sans-serif; letter-spacing: .12em; color: #999; }
+.period-wide { grid-column: 1 / -1; justify-self: center; width: calc((100% - 32px) / 3 * 1.4); min-width: 200px; }
+
+.period-open:hover,
+.period-open:focus-visible {
+  transform: translateY(-3px);
+  background: #1f1f1f;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 0 1px #fff3;
+}
+.period:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 3px; }
+
+.period:disabled {
+  border-color: #444;
+  background: transparent;
+  color: #777;
+  cursor: not-allowed;
+}
+.period:disabled .period-dates { color: #555; }
+.period-badge {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  padding: 3px 8px;
+  background: #0e0e0e;
+  border: 1px solid #555;
+  border-radius: 999px;
+  font: 700 10px/1 system-ui, sans-serif;
+  letter-spacing: .14em;
+  color: #c9a24b;
+}
+
+@media (max-width: 560px) {
+  .menu-grid { grid-template-columns: 1fr; }
+  .period-wide { width: auto; min-width: 0; justify-self: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu, .period { transition: none; }
+}

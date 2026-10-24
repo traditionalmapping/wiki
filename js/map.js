@@ -79,6 +79,7 @@ async function setBasemap(id) {
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+  map.addControl(new MenuButtonControl(), 'top-left');
   map.addControl(basemapControl, 'top-left');
   map.addControl(new SearchControl(map, MAPTILER_KEY), 'top-left');
 
