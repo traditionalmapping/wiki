@@ -177,8 +177,54 @@ function createVideoModal() {
   };
 }
 
+// ---- Left-side list of all videos, each with a "Show on map" button ----
+function createVideoPanel(entries, goTo) {
+  const total = entries.reduce((n, en) => n + en.videos.length, 0);
+
+  const root = mk('aside', 'vpanel');
+  root.setAttribute('aria-label', 'Video list');
+  if (window.innerWidth < 700) root.classList.add('collapsed'); // small screens: start folded
+
+  const head = mk('button', 'vpanel-head');
+  head.type = 'button';
+  const title = mk('span', 'vpanel-title');
+  title.textContent = 'Videos';
+  const count = mk('span', 'vmodal-count');
+  count.textContent = String(total);
+  const chevron = mk('span', 'vpanel-chevron');
+  chevron.textContent = '\u25BE';
+  head.append(title, count, chevron);
+  head.setAttribute('aria-expanded', String(!root.classList.contains('collapsed')));
+  head.addEventListener('click', () => {
+    const collapsed = root.classList.toggle('collapsed');
+    head.setAttribute('aria-expanded', String(!collapsed));
+  });
+
+  const list = mk('div', 'vpanel-list');
+  entries.forEach(en => {
+    en.videos.forEach(v => {
+      const item = mk('div', 'vitem');
+      const body = mk('div', 'vitem-body');
+      const t = mk('a', 'vitem-title');
+      openLink(t, v.url);
+      t.textContent = v.title || 'Untitled';
+      const go = mk('button', 'vitem-go');
+      go.type = 'button';
+      go.textContent = 'Show on map';
+      go.addEventListener('click', () => goTo(en.pos));
+      body.append(t, go);
+      item.append(thumbEl(v, 'vitem-thumb'), body);
+      list.append(item);
+    });
+  });
+
+  root.append(head, list);
+  document.body.append(root);
+}
+
 function addVideoPlaces(map) {
   const modal = createVideoModal();
+  const entries = []; // valid places, used for the left-side list
 
   PLACES.forEach((place, i) => {
     const pos = parseLatLng(place.coords);
@@ -195,10 +241,15 @@ function addVideoPlaces(map) {
         }
       }
     );
+    entries.push({ pos, videos });
     new maplibregl.Marker({ element: el, anchor: 'bottom-left' })
       .setLngLat([pos.lng, pos.lat])
       .addTo(map);
   });
+
+  createVideoPanel(entries, pos =>
+    map.flyTo({ center: [pos.lng, pos.lat], zoom: Math.max(map.getZoom(), LABEL_MIN_ZOOM + 1), duration: 1200 })
+  );
 
   const update = () => map.getContainer().classList.toggle('labels-off', map.getZoom() < LABEL_MIN_ZOOM);
   map.on('zoom', update);
