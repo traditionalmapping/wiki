@@ -128,5 +128,15 @@ async function setBasemap(id) {
   });
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
-  map.on('error', e => console.error('Map error:', e.error || e));
+  map.on('error', e => {
+    const err = e.error || e;
+    console.error('Map error:', err);
+    // If MapTiler refuses the request (bad key, blocked domain, quota), fall back to OSM
+    // so the visitor still gets a map instead of a blank screen.
+    const refused = [401, 403, 429].includes(err.status) && String(err.url || '').includes('maptiler.com');
+    if (refused && current === 'dark') {
+      console.warn('Dark base map was refused by MapTiler (HTTP ' + err.status + '). Switching to OSM.');
+      setBasemap('osm');
+    }
+  });
 })();
