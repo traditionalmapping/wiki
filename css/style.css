@@ -197,6 +197,41 @@ body.menu-open .crosshair { visibility: hidden; }
   color: #c9a24b;
 }
 
+/* Creators credit under the period cards */
+.menu-credits {
+  margin: 56px 0 0;
+  font: 12px/1.6 system-ui, sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #666;
+}
+.menu-credits-names {
+  display: block;
+  margin-top: 4px;
+  font: 400 16px/1.4 Georgia, 'Times New Roman', serif;
+  letter-spacing: .08em;
+  text-transform: none;
+  color: #aaa;
+}
+
+.menu-credits.menu-idea { margin-top: 22px; }
+
+.creators-sub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 6px 11px;
+  background: #151515;
+  border: 2px solid #f2f2f2;
+  border-radius: 6px;
+  color: #f2f2f2;
+  font-family: Georgia, 'Times New Roman', serif;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
 @media (max-width: 560px) {
   .menu-grid { grid-template-columns: 1fr; }
   .period-wide { width: auto; min-width: 0; justify-self: stretch; }
