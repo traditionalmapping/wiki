@@ -142,7 +142,7 @@ const PLACES = [
     coords: '59.93876, 30.31560',
     name: 'Leningrad',
     videos: [
-      { title: 'The War of Annihilation - Siege of Leningrad / Война на Уничтожение - Блокада Ленинграда', url: 'www.youtube.com/watch?v=xEuUUYlRGag', date: '1944-06-22 / 1944 -10-01' }
+      { title: 'The War of Annihilation - Siege of Leningrad / Война на Уничтожение - Блокада Ленинграда', url: 'https://www.youtube.com/watch?v=xEuUUYlRGag', date: '1944-06-22 / 1944 -10-01' }
     ]
   },
   {
