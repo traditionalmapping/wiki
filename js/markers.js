@@ -60,10 +60,94 @@ function linkEl(url) {
   return a;
 }
 
+// ---- In-page YouTube player (opens when a YouTube thumbnail is clicked) ----
+let playerApi = null;
+
+function createVideoPlayer() {
+  const back = mk('div', 'pmodal');
+  back.hidden = true;
+  const panel = mk('div', 'pmodal-panel');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', 'Video player');
+
+  const head = mk('div', 'pmodal-head');
+  const title = mk('span', 'pmodal-title');
+  head.append(title);
+
+  const close = mk('button', 'vmodal-close');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Close');
+  close.textContent = '\u2715';
+
+  const frame = mk('div', 'pmodal-frame');
+  const foot = mk('div', 'pmodal-foot');
+  const yt = mk('a', 'pmodal-link');
+  yt.textContent = 'Open on YouTube \u2197';
+  foot.append(yt);
+
+  panel.append(head, close, frame, foot);
+  back.append(panel);
+  document.body.append(back);
+
+  const FADE_MS = 260; // keep in sync with the CSS transition time
+  let opener = null;
+  let closeTimer = null;
+
+  const isOpen = () => back.classList.contains('open');
+  const hide = () => {
+    if (!isOpen()) return;
+    back.classList.remove('open');
+    frame.replaceChildren();                   // removing the iframe stops the video
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { back.hidden = true; }, FADE_MS);
+    if (opener && opener.focus) opener.focus({ preventScroll: true });
+  };
+  close.addEventListener('click', hide);
+  back.addEventListener('mousedown', e => { if (e.target === back) hide(); });
+  // capture phase: Escape closes only the player, not the "+N" list under it
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isOpen()) { e.stopImmediatePropagation(); hide(); }
+  }, true);
+
+  return {
+    open(video, id, fromEl) {
+      opener = fromEl || null;
+      clearTimeout(closeTimer);
+      title.textContent = video.title || 'Video';
+      openLink(yt, video.url);
+
+      const iframe = mk('iframe');
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1';
+      iframe.title = video.title || 'Video';
+      iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.replaceChildren(iframe);
+
+      back.hidden = false;
+      void back.offsetWidth;
+      back.classList.add('open');
+      close.focus({ preventScroll: true });
+    }
+  };
+}
+
 function thumbEl(video, cls) {
   const a = mk('a', cls);
   openLink(a, video.url);
-  a.setAttribute('aria-label', 'Open video: ' + (video.title || 'video'));
+  const yid = youtubeId(video.url);
+  a.setAttribute('aria-label', (yid ? 'Play video: ' : 'Open video: ') + (video.title || 'video'));
+  if (yid) {
+    // Plain click plays it here; Ctrl/Shift/middle-click still opens YouTube in a new tab
+    a.addEventListener('click', e => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!playerApi) playerApi = createVideoPlayer();
+      playerApi.open(video, yid, a);
+    });
+  }
   const src = thumbUrl(video);
   const placeholder = () => { a.classList.add('no-thumb'); a.replaceChildren(); a.textContent = '\u25B6'; };
   if (src) {

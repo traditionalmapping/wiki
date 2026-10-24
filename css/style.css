@@ -670,6 +670,84 @@ body.menu-open .crosshair { visibility: hidden; }
   .vpanel-chevron, .vitem, .vitem-go { transition: none; }
 }
 
+/* ---------- In-page video player ---------- */
+.pmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;                        /* above the "+N" list (50), below the Periods menu (100) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 4, 8, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  transition: background .26s ease, backdrop-filter .26s ease, -webkit-backdrop-filter .26s ease;
+}
+.pmodal[hidden] { display: none; }
+.pmodal.open {
+  background: rgba(4, 4, 8, .72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.pmodal-panel {
+  position: relative;
+  box-sizing: border-box;
+  width: min(900px, 100%);
+  padding: 16px;
+  background: linear-gradient(180deg, #19191b 0%, #111112 100%);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 16px;
+  color: #eee;
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .65), 0 0 0 1px rgba(0, 0, 0, .4);
+  opacity: 0;
+  transform: translateY(14px) scale(.97);
+  transition: opacity .26s ease, transform .26s cubic-bezier(.2, .8, .2, 1);
+}
+.pmodal.open .pmodal-panel { opacity: 1; transform: none; }
+.pmodal-head { padding: 2px 44px 12px 4px; }
+.pmodal-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #f4f4f6;
+  overflow-wrap: anywhere;
+}
+.pmodal-frame {
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pmodal-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.pmodal-foot { padding: 12px 4px 0; font-size: 13px; }
+.pmodal-link { color: #9a9aa2; text-decoration: none; }
+.pmodal-link:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.pmodal-link:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+.pmodal .vmodal-close:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+
+.vitem-thumb { position: relative; }
+.vitem-thumb:not(.no-thumb)::after {           /* play button on hover */
+  content: '\25B6';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .35);
+  color: #fff;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.vitem:hover .vitem-thumb::after { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pmodal, .pmodal-panel, .vitem-thumb::after { transition: none; }
+}
+
 /* ---------- History button (bottom-left) ---------- */
 .history { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font: 13px/1 system-ui, sans-serif; }
 .history-toggle {

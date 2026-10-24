@@ -58,6 +58,12 @@ The map panel shows the first video plus a **+N** button that opens the rest. Th
 { title: 'My video', url: 'https://example.com/video', thumb: 'https://example.com/image.jpg' }
 ```
 
+### Playing videos
+
+Clicking a **YouTube thumbnail** plays the video in a pop-up on the map page, with no need to go to YouTube. Close it with the ✕, a click outside, or **Esc**. Ctrl/Shift-click (or middle-click) opens YouTube in a new tab instead. Links from other sites always open in a new tab.
+
+> The player needs the site to be opened through `http://` or `https://` (for example GitHub Pages or a local server). Opened directly as a `file://` page, YouTube shows an error instead of the video.
+
 ## Common mistakes
 
 - **Missing comma** between two `{ ... }` blocks or two videos. Nothing will show up if the file has a syntax error.
