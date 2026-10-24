@@ -69,6 +69,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '48.70717, 44.51455',
+    name: 'Stalingrad',
+    videos: [
+      { title: 'The War of Annihilation - Battle of Stalingrad & Caucasus / Война на Уничтожение - Битва за Кавказ', url: 'https://www.youtube.com/watch?v=MsOZef3DMno', date: '1942-05-12 / 1943-10-10' }
+    ]
+  },
+  {
     coords: '55.75040, 37.61734',
     name: 'Moscow',
     videos: [
