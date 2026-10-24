@@ -37,7 +37,7 @@ class HistoryControl {
     const toggle = this.toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'history-toggle';
-    toggle.textContent = 'History';
+    toggle.textContent = 'History Map: OFF';
     toggle.setAttribute('aria-pressed', 'false');
     toggle.addEventListener('click', () => this.setOn(!this.on));
 
@@ -89,9 +89,11 @@ class HistoryControl {
   setOn(value) {
     this.on = value;
     this.toggle.classList.toggle('active', value);
+    this.toggle.textContent = value ? 'History Map: ON' : 'History Map: OFF';
     this.toggle.setAttribute('aria-pressed', String(value));
     this.panel.hidden = !value;
     this.apply();
+
     if (value) this.check();
   }
 
