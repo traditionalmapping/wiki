@@ -67,8 +67,9 @@ async function setBasemap(id) {
   map = new maplibregl.Map({
     container: 'map',
     style,
-    center: [31.5, 48.8],
-    zoom: 5.5,
+    // Start with all of Europe in view, whatever the screen size
+    bounds: [[-25, 34], [45, 72]],
+    fitBoundsOptions: { padding: 20 },
     minZoom: 2,
     maxZoom: 18,
     maxPitch: 60,
@@ -126,6 +127,9 @@ async function setBasemap(id) {
     copyBtn.textContent = 'Copied';
     setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
   });
+
+  addVideoPlaces(map); // panels from js/places.js
+  initHistory(map);    // History button, js/history.js
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => {
