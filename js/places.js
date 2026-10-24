@@ -107,7 +107,7 @@ const PLACES = [
     coords: '39.66467, 20.85110',
     name: 'Ionnina',
     videos: [
-      { title: 'WWII - Balkans Campaign, Every Day (1940-1941) / 巴爾幹戰役', url: 'https://www.youtube.com/watch?v=z7bUu-RUcMg', date: '1940-10-28 / 194-03-24' }
+      { title: 'WWII - Balkans Campaign, Every Day (1940-1941) / 巴爾幹戰役', url: 'https://www.youtube.com/watch?v=z7bUu-RUcMg', date: '1940-10-28 / 1941-03-24' }
     ]
   },
   {
