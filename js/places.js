@@ -41,6 +41,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '50.08720, 14.42225',
+    name: 'Prague',
+    videos: [
+      { title: 'Liberation of Czechoslovakia: Every Day [WW2]', url: 'https://www.youtube.com/watch?v=PR6b2PfefMw', date: '1944-08-29 / 1945-05-15' }
+    ]
+  },
+  {
     coords: '50.45010, 30.52340',
     name: 'Kyiv',
     videos: [
@@ -77,8 +84,7 @@ const PLACES = [
     coords: '48.14090, 17.10549',
     name: 'Bratislava',
     videos: [
-      { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo', date: '1944-08-29 / 1944-10-28' },
-      { title: 'Liberation of Czechoslovakia: Every Day [WW2]', url: 'https://www.youtube.com/watch?v=PR6b2PfefMw', date: '1944-08-29 / 1945-05-15' },        
+      { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo', date: '1944-08-29 / 1944-10-28' }       
     ]
   }
 ];
