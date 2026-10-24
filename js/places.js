@@ -125,6 +125,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '56.95047, 24.11333',
+    name: 'Riga',
+    videos: [
+      { title: 'WW2: Baltic Offensive Mapped: Every Day', url: 'https://www.youtube.com/watch?v=05lesbm_nTA', date: '1944-09-14 / 1941-12-26' }
+    ]
+  },
+  {
     coords: '44.43742, 26.10037',
     name: 'Bucharest',
     videos: [
