@@ -48,6 +48,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '52.51568, 13.39247',
+    name: 'Berlin',
+    videos: [
+      { title: '[4K] WWII - The Downfall of Nazi Germany: Every Day [Minor Errors]', url: 'https://www.youtube.com/watch?v=sLI9RFyRul0', date: '1945-01-01 / 1945-05-13' }
+    ]
+  },  
+  {
     coords: '55.75040, 37.61734',
     name: 'Moscow',
     videos: [
