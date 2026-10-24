@@ -111,10 +111,24 @@ const PLACES = [
     ]
   },
   {
+    coords: '44.81729, 20.45751',
+    name: 'Belgrade',
+    videos: [
+      { title: 'Axis Invasion on Yugoslavia(April War): Every Day', url: 'https://www.youtube.com/watch?v=wI85VvbGpuw', date: '1941-03-25 / 1941-04-25' }
+    ]
+  },
+  {
     coords: '37.97531, 23.73648',
     name: 'Athens',
     videos: [
       { title: '[4K] WWII - The Invasion of Greece: Every 2 Hours/Every Day', url: 'https://www.youtube.com/watch?v=SsXpNV9_Byg', date: '1941-04-06 / 1941-06-01' }
+    ]
+  },
+  {
+    coords: '44.43742, 26.10037',
+    name: 'Bucharest',
+    videos: [
+      { title: 'World War II - Partition of Romania (1940) Map', url: 'https://www.youtube.com/watch?v=SCs_kf0qyqQ', date: '1940-06-28 / 1941-07-06' }
     ]
   },
   {
