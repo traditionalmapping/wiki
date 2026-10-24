@@ -1,0 +1,47 @@
+/* Continent buttons, bottom center */
+.continents {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  padding: 5px;
+  background: rgba(28, 28, 28, .9);
+  border: 1px solid #333;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font: 13px/1 system-ui, sans-serif;
+  scrollbar-width: none;
+}
+.continents::-webkit-scrollbar { display: none; }
+.continents button {
+  flex: none;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #bbb;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.continents button:hover { color: #fff; }
+.continents button.active { background: #2e2e2e; color: #fff; }
+.continents button:focus-visible { outline: 2px solid #6aa9ff; outline-offset: -2px; }
+.continents .count { margin-left: 7px; font-size: 11px; color: #777; }
+.continents button.active .count { color: #c9a24b; }
+
+/* panels of other continents are hidden */
+.continent-hidden { display: none !important; }
+
+body.menu-open .continents { visibility: hidden; }
+
+@media (max-width: 700px) {
+  .continents { bottom: 58px; } /* above the History button */
+}

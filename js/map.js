@@ -129,6 +129,7 @@ async function setBasemap(id) {
   });
 
   addVideoPlaces(map); // panels from js/places.js
+  initContinents(map);
   initHistory(map);    // History button, js/history.js
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
