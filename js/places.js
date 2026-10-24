@@ -140,6 +140,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '35.69318, 51.38559',
+    name: 'Tehran',
+    videos: [
+      { title: 'World War II - Anglo-Soviet Invasion of Iran (1941): Every Day', url: 'https://www.youtube.com/watch?v=MO7WxuOJm7I', date: '1941-08-25 / 1941-10-17' }
+    ]
+  },
+  {
     coords: '41.89563, 12.48847',
     name: 'Roma',
     videos: [
