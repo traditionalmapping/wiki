@@ -97,6 +97,20 @@ const PLACES = [
     ]
   },
   {
+    coords: '59.91310, 10.74040',
+    name: 'Oslo',
+    videos: [
+      { title: 'WW2: Operation Weserübung: Norwegian Campaign Mapped: Every Day', url: 'https://www.youtube.com/watch?v=BOtaegVT2nY', author: 'Jumlesss Mapping', date: '1940-04-08 / 1940-07-23' }
+    ]
+  },
+  {
+    coords: '60.17177, 24.93551',
+    name: 'Helsinki',
+    videos: [
+      { title: 'WW2: Operation Weserübung: Norwegian Campaign Mapped: Every Day', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' }
+    ]
+  },
+  {
     coords: '55.75040, 37.61734',
     name: 'Moscow',
     videos: [
