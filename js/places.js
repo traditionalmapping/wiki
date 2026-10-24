@@ -209,6 +209,20 @@ const PLACES = [
     ]
   },
   {
+    coords: '58.99967, 22.74861',
+    name: 'Kardla',
+    videos: [
+      { title: 'Invasion of Hiiumaa Island (Estonia) (1941): Every Hour | MAPPED', url: 'https://www.youtube.com/watch?v=SuRciVF-YdE', date: '1941-10-12 / 1941-10-21' }
+    ]
+  },
+  {
+    coords: '57.81733, 28.33387',
+    name: 'Pskov',
+    videos: [
+      { title: 'Liberation of Pskov: Every Hour | WWII', url: 'https://www.youtube.com/watch?v=7_tx-V7lE1o', date: '1944-07-22 / 1941-07-23' }
+    ]
+  },
+  {
     coords: '48.14090, 17.10549',
     name: 'Bratislava',
     videos: [
