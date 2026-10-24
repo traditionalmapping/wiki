@@ -35,5 +35,18 @@ const PLACES = [
       { title: 'WW2: Operation Barbarossa MAPPED【22.06.41 - 05.12.41】- EVERY DAY', url: 'https://www.youtube.com/watch?v=n4uHL6BOhzY' },
       { title: 'The War of Annihilation - Battle of Moscow / Война на Уничтожение - Битва за Москву', url: 'https://www.youtube.com/watch?v=TRdV-gm7PEc' }
     ]
+  },
+  {
+    coords: '49.19081, 37.27984',
+    videos: [
+      { title: 'World War 2: Eastern Front / Barvenkovo-Lozovaya Offensive & Aftermath', url: 'https://www.youtube.com/watch?v=eZE3WiHGomc' }
+    ]
+  },
+  {
+    coords: '48.14090, 17.10549',
+    videos: [
+      { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo' },
+      { title: 'Liberation of Czechoslovakia: Every Day [WW2]', url: 'https://www.youtube.com/watch?v=PR6b2PfefMw' },        
+    ]
   }
 ];
