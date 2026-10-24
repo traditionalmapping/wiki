@@ -60,7 +60,14 @@ const PLACES = [
     videos: [
       { title: '[4K] WWII - The Downfall of Nazi Germany: Every Day [Minor Errors]', url: 'https://www.youtube.com/watch?v=sLI9RFyRul0', date: '1945-01-01 / 1945-05-13' }
     ]
-  },  
+  },
+  {
+    coords: '55.68587, 12.56937',
+    name: 'Copenhagen',
+    videos: [
+      { title: 'German Invasion of Denmark: Every Minute (NEW)', url: 'https://www.youtube.com/watch?v=WW-baHu5aiA', date: '1940-04-09 / 1940-04-09' }
+    ]
+  },
   {
     coords: '55.75040, 37.61734',
     name: 'Moscow',
