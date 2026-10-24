@@ -104,10 +104,25 @@ const PLACES = [
     ]
   },
   {
+    coords: '39.66467, 20.85110',
+    name: 'Ionnina',
+    videos: [
+      { title: 'WWII - Balkans Campaign, Every Day (1940-1941) / 巴爾幹戰役', url: 'https://www.youtube.com/watch?v=z7bUu-RUcMg', date: '1940-10-28 / 194-03-24' }
+    ]
+  },
+  {
+    coords: '37.97531, 23.73648',
+    name: 'Athens',
+    videos: [
+      { title: '[4K] WWII - The Invasion of Greece: Every 2 Hours/Every Day', url: 'https://www.youtube.com/watch?v=SsXpNV9_Byg', date: '1941-04-06 / 1941-06-01' }
+    ]
+  },
+  {
     coords: '60.17177, 24.93551',
     name: 'Helsinki',
     videos: [
-      { title: 'WW2: Operation Weserübung: Norwegian Campaign Mapped: Every Day', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' }
+      { title: 'WW2: The Continuation War: Every Day (Remake) [25.06.41 – 19.09.44] [4K]', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' },
+      { title: 'WWII - The Winter War/Советско-финляндская война/Talvisota (1939-1940): Every Day', url: 'https://www.youtube.com/watch?v=A94GgeX-FKI', date: '1939-11-30 / 1944-03-13' }
     ]
   },
   {
