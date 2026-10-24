@@ -114,7 +114,8 @@ const PLACES = [
     coords: '44.81729, 20.45751',
     name: 'Belgrade',
     videos: [
-      { title: 'Axis Invasion on Yugoslavia(April War): Every Day', url: 'https://www.youtube.com/watch?v=wI85VvbGpuw', date: '1941-03-25 / 1941-04-25' }
+      { title: 'Axis Invasion on Yugoslavia(April War): Every Day', url: 'https://www.youtube.com/watch?v=wI85VvbGpuw', date: '1941-03-25 / 1941-04-25' },
+      { title: 'Yugoslav Partisans during World War II', url: 'https://www.youtube.com/watch?v=QMbnMtGmCms', date: '1941-07-04 / 1941-05-16' }
     ]
   },
   {
@@ -122,6 +123,20 @@ const PLACES = [
     name: 'Athens',
     videos: [
       { title: '[4K] WWII - The Invasion of Greece: Every 2 Hours/Every Day', url: 'https://www.youtube.com/watch?v=SsXpNV9_Byg', date: '1941-04-06 / 1941-06-01' }
+    ]
+  },
+  {
+    coords: '43.32077, 45.69346',
+    name: 'Grozny',
+    videos: [
+      { title: 'World War II in Chechnya and Ingushetia (1940-1957) - Map Animation', url: 'https://www.youtube.com/watch?v=wQnDOnwVYG4', date: '1940-01-01 / 1941-05-08' }
+    ]
+  },
+  {
+    coords: '33.30519, 44.38877',
+    name: 'Baghdad',
+    videos: [
+      { title: 'World War II - The Anglo-Iraqi War and the Syria-Lebanon Campaign: Every Day', url: 'https://www.youtube.com/watch?v=sYRvMXxWTp0', date: '1941-03-31 / 1941-07-14' }
     ]
   },
   {
