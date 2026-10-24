@@ -58,9 +58,36 @@ The map panel shows the first video plus a **+N** button that opens the rest. Th
 { title: 'My video', url: 'https://example.com/video', thumb: 'https://example.com/image.jpg' }
 ```
 
+### Optional: date, tags, place name (author is automatic)
+
+The **Videos** panel on the left can search, group, sort and filter. For that it uses extra fields you can add (all optional):
+
+```js
+{
+  coords: '52.22970, 21.01220',
+  name: 'Warsaw',                       // place name (used by "Group by: Place")
+  videos: [
+    {
+      title: 'Warsaw Uprising (1944)',
+      url: 'https://www.youtube.com/watch?v=XXXXXXXXXXX',
+      date: '1944-08-01 / 1944-10-02',  // when the events in the video happen
+      tags: ['Eastern Front', 'Every day']  // clickable labels + the Tag filter
+    }
+  ]
+},
+```
+
+- **Author:** for YouTube links the channel name is found automatically (and remembered in the browser), so you don't write it. You can still add `author: '...'` to override it, and you need it for links from other sites.
+- **Date:** the date of the events shown in the video, not the upload date. Use one date or a range: `'1944-08-01'`, `'1944-08'`, `'1944'` or `'1944-08-01 / 1944-10-02'`. Grouping by year and sorting use the start date. It can't be found automatically, so write it yourself.
+- **Tags** and **name** are written by hand too.
+
+Videos without a date land in the "Unknown date" group, and are listed last when sorting by date. The **Tag** filter appears once at least one video has a tag.
+
 ### Playing videos
 
 Clicking a **YouTube thumbnail** plays the video in a pop-up on the map page, with no need to go to YouTube. Close it with the ✕, a click outside, or **Esc**. Ctrl/Shift-click (or middle-click) opens YouTube in a new tab instead. Links from other sites always open in a new tab.
+
+If the owner of a video disabled embedding, YouTube can't play it in a pop-up. Such a video is detected automatically and its thumbnail opens YouTube in a new tab instead. You can also force this by adding `embed: false` to that video.
 
 > The player needs the site to be opened through `http://` or `https://` (for example GitHub Pages or a local server). Opened directly as a `file://` page, YouTube shows an error instead of the video.
 

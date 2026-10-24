@@ -138,10 +138,11 @@ function thumbEl(video, cls) {
   openLink(a, video.url);
   const yid = youtubeId(video.url);
   a.setAttribute('aria-label', (yid ? 'Play video: ' : 'Open video: ') + (video.title || 'video'));
-  if (yid) {
+  if (yid && video.embed !== false) {
     // Plain click plays it here; Ctrl/Shift/middle-click still opens YouTube in a new tab
     a.addEventListener('click', e => {
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (noEmbedIds.has(yid)) return;          // embedding disabled: let the link open YouTube
       e.preventDefault();
       e.stopPropagation();
       if (!playerApi) playerApi = createVideoPlayer();
@@ -261,10 +262,92 @@ function createVideoModal() {
   };
 }
 
-// ---- Left-side list of all videos, each with a "Show on map" button ----
-function createVideoPanel(entries, goTo) {
-  const total = entries.reduce((n, en) => n + en.videos.length, 0);
+// ---- Left-side list of all videos: search, group, sort, filter, "Show on map" ----
 
+// '2023', '2023-05' or '2023-05-14' -> sortable 'YYYY-MM-DD' (or '' if missing/invalid)
+function dateKey(d) {
+  const m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(String(d || '').trim());
+  return m ? m[1] + '-' + (m[2] || '01') + '-' + (m[3] || '01') : '';
+}
+
+// The date the events in the video happen: one date, or a range like
+// '1944-08-01 / 1944-10-02' (also "to" or an en dash between the two).
+// -> { key: sortable start date, label: text to show }; key is '' if missing/invalid
+function parseDate(value) {
+  const parts = String(value || '').split(/\s*(?:\/|\bto\b|\u2013|\u2014)\s*/).map(x => x.trim()).filter(Boolean);
+  const key = parts.length ? dateKey(parts[0]) : '';
+  if (!key) return { key: '', label: '' };
+  return { key, label: parts.slice(0, 2).filter(x => dateKey(x)).join(' \u2013 ') };
+}
+
+// Channel names for YouTube videos: asked from YouTube's public oEmbed once, then kept in the browser
+const AUTHOR_CACHE_KEY = 'yt-authors-v1';
+function loadAuthorCache() {
+  try {
+    const o = JSON.parse(localStorage.getItem(AUTHOR_CACHE_KEY));
+    return o && typeof o === 'object' ? o : {};
+  } catch (e) { return {}; }
+}
+function saveAuthorCache(cache) {
+  try { localStorage.setItem(AUTHOR_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+// Videos whose owner disabled embedding (YouTube answers HTTP 401): their thumbnail opens YouTube instead
+const NOEMBED_KEY = 'yt-noembed-v1';
+const noEmbedIds = new Set((() => {
+  try {
+    const a = JSON.parse(localStorage.getItem(NOEMBED_KEY));
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+})());
+function markNoEmbed(id) {
+  noEmbedIds.add(id);
+  try { localStorage.setItem(NOEMBED_KEY, JSON.stringify([...noEmbedIds])); } catch (e) {}
+}
+async function fetchYouTubeAuthor(id) {
+  const url = 'https://www.youtube.com/oembed?format=json&url=' +
+    encodeURIComponent('https://www.youtube.com/watch?v=' + id);
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = new Error('HTTP ' + res.status);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  return String(data.author_name || '').trim();
+}
+
+function createVideoPanel(entries, goTo) {
+  // One flat record per video
+  const items = [];
+  entries.forEach(en => {
+    const place = en.name || (en.pos.lat.toFixed(2) + ', ' + en.pos.lng.toFixed(2));
+    en.videos.forEach(v => {
+      const tags = [].concat(v.tags || []).map(t => String(t).trim()).filter(Boolean);
+      const pd = parseDate(v.date);
+      const key = pd.key;
+      items.push({
+        v, pos: en.pos, place, tags, key,
+        author: String(v.author || '').trim(),   // written in places.js; otherwise found below
+        date: pd.label,
+        year: key.slice(0, 4),
+        idx: items.length
+      });
+    });
+  });
+  const total = items.length;
+  const uniq = arr => [...new Set(arr)].sort((a, b) => a.localeCompare(b));
+  const authorCache = loadAuthorCache();
+  items.forEach(it => {
+    const id = youtubeId(it.v.url);
+    if (!it.author && id && authorCache[id]) it.author = authorCache[id];
+  });
+  let authors = uniq(items.map(it => it.author).filter(Boolean));
+  const tagList = uniq(items.flatMap(it => it.tags));
+
+  const DEFAULTS = { q: '', group: 'none', sort: 'default', author: '', tag: '' };
+  const state = Object.assign({}, DEFAULTS);
+
+  // ----- panel shell -----
   const root = mk('aside', 'vpanel');
   root.setAttribute('aria-label', 'Video list');
   if (window.innerWidth < 700) root.classList.add('collapsed'); // small screens: start folded
@@ -274,7 +357,6 @@ function createVideoPanel(entries, goTo) {
   const title = mk('span', 'vpanel-title');
   title.textContent = 'Videos';
   const count = mk('span', 'vmodal-count');
-  count.textContent = String(total);
   const chevron = mk('span', 'vpanel-chevron');
   chevron.textContent = '\u25BE';
   head.append(title, count, chevron);
@@ -284,26 +366,200 @@ function createVideoPanel(entries, goTo) {
     head.setAttribute('aria-expanded', String(!collapsed));
   });
 
+  // ----- tools: search, group, sort, filters -----
+  const tools = mk('div', 'vpanel-tools');
+  const search = mk('input', 'vpanel-search');
+  search.type = 'search';
+  search.placeholder = 'Search videos';
+  search.setAttribute('aria-label', 'Search videos');
+  search.addEventListener('input', () => { state.q = search.value; render(); });
+
+  const grid = mk('div', 'vpanel-grid');
+  const control = (label, options, key) => {
+    const wrap = mk('label', 'vtool');
+    const span = mk('span');
+    span.textContent = label;
+    const sel = mk('select');
+    options.forEach(([val, text]) => {
+      const o = mk('option');
+      o.value = val;
+      o.textContent = text;
+      sel.append(o);
+    });
+    sel.addEventListener('change', () => { state[key] = sel.value; render(); });
+    wrap.append(span, sel);
+    grid.append(wrap);
+    return { wrap, sel };
+  };
+  const cGroup = control('Group by', [['none', 'None'], ['author', 'Author'], ['year', 'Year'], ['place', 'Place']], 'group');
+  const cSort = control('Sort', [['default', 'Default'], ['oldest', 'Earliest first'], ['newest', 'Latest first'], ['title', 'A\u2013Z']], 'sort');
+  const cAuthor = control('Author', [['', 'All']].concat(authors.map(a => [a, a])), 'author');
+  const cTag = control('Tag', [['', 'All']].concat(tagList.map(t => [t, t])), 'tag');
+  const fillAuthorOptions = () => {
+    authors = uniq(items.map(it => it.author).filter(Boolean));
+    cAuthor.sel.replaceChildren();
+    [['', 'All']].concat(authors.map(a => [a, a])).forEach(([val, text]) => {
+      const o = mk('option');
+      o.value = val;
+      o.textContent = text;
+      cAuthor.sel.append(o);
+    });
+    cAuthor.sel.value = authors.includes(state.author) ? state.author : '';
+    state.author = cAuthor.sel.value;
+    cAuthor.wrap.hidden = !authors.length;       // no author known yet -> nothing to filter by
+  };
+  fillAuthorOptions();
+  cTag.wrap.hidden = !tagList.length;
+
+  const status = mk('div', 'vpanel-status');
+  const statusText = mk('span');
+  const reset = mk('button', 'vpanel-reset');
+  reset.type = 'button';
+  reset.textContent = 'Reset';
+  reset.addEventListener('click', () => {
+    Object.assign(state, DEFAULTS);
+    search.value = '';
+    cGroup.sel.value = DEFAULTS.group;
+    cSort.sel.value = DEFAULTS.sort;
+    cAuthor.sel.value = '';
+    cTag.sel.value = '';
+    render();
+  });
+  status.append(statusText, reset);
+  tools.append(search, grid, status);
+
   const list = mk('div', 'vpanel-list');
-  entries.forEach(en => {
-    en.videos.forEach(v => {
-      const item = mk('div', 'vitem');
-      const body = mk('div', 'vitem-body');
-      const t = mk('a', 'vitem-title');
-      openLink(t, v.url);
-      t.textContent = v.title || 'Untitled';
-      const go = mk('button', 'vitem-go');
-      go.type = 'button';
-      go.textContent = 'Show on map';
-      go.addEventListener('click', () => goTo(en.pos));
-      body.append(t, go);
-      item.append(thumbEl(v, 'vitem-thumb'), body);
-      list.append(item);
+
+  // ----- one video row -----
+  const itemEl = it => {
+    const item = mk('div', 'vitem');
+    const body = mk('div', 'vitem-body');
+    const t = mk('a', 'vitem-title');
+    openLink(t, it.v.url);
+    t.textContent = it.v.title || 'Untitled';
+    body.append(t);
+
+    const meta = [it.author, it.date].filter(Boolean).join(' \u00B7 ');
+    if (meta) {
+      const m = mk('div', 'vitem-meta');
+      m.textContent = meta;
+      body.append(m);
+    }
+    if (it.tags.length) {
+      const row = mk('div', 'vitem-tags');
+      it.tags.forEach(tag => {
+        const b = mk('button', 'vtag');
+        b.type = 'button';
+        b.textContent = tag;
+        b.title = 'Show only: ' + tag;
+        b.addEventListener('click', () => { state.tag = tag; cTag.sel.value = tag; render(); });
+        row.append(b);
+      });
+      body.append(row);
+    }
+
+    const go = mk('button', 'vitem-go');
+    go.type = 'button';
+    go.textContent = 'Show on map';
+    go.addEventListener('click', () => goTo(it.pos));
+    body.append(go);
+
+    item.append(thumbEl(it.v, 'vitem-thumb'), body);
+    return item;
+  };
+
+  // ----- filter -> sort -> group -> draw -----
+  const byDate = dir => (a, b) => {
+    if (!a.key !== !b.key) return a.key ? -1 : 1;        // videos without a date go last
+    if (a.key !== b.key) return dir * (a.key < b.key ? -1 : 1);
+    return a.idx - b.idx;
+  };
+  const sorters = {
+    default: (a, b) => a.idx - b.idx,
+    newest: byDate(-1),
+    oldest: byDate(1),
+    title: (a, b) => (a.v.title || '').localeCompare(b.v.title || '') || a.idx - b.idx
+  };
+  const groupBy = { author: it => it.author, year: it => it.year, place: it => it.place };
+  const groupLabel = {
+    author: k => k || 'Unknown author',
+    year: k => k || 'Unknown date',
+    place: k => k
+  };
+
+  function render(keepScroll) {
+    const q = state.q.trim().toLowerCase();
+    const shown = items
+      .filter(it =>
+        (!state.author || it.author === state.author) &&
+        (!state.tag || it.tags.includes(state.tag)) &&
+        (!q || [it.v.title, it.author, it.place, it.date, it.tags.join(' ')].join(' ').toLowerCase().includes(q)))
+      .sort(sorters[state.sort]);
+
+    const filtered = shown.length !== total;
+    count.textContent = filtered ? shown.length + '/' + total : String(total);
+    const changed = Object.keys(DEFAULTS).some(k => state[k] !== DEFAULTS[k]);
+    status.hidden = !changed;
+    statusText.textContent = 'Showing ' + shown.length + ' of ' + total;
+
+    const frag = document.createDocumentFragment();
+    if (!shown.length) {
+      const empty = mk('div', 'vpanel-empty');
+      empty.textContent = 'No videos match.';
+      frag.append(empty);
+    } else if (state.group === 'none') {
+      shown.forEach(it => frag.append(itemEl(it)));
+    } else {
+      const groups = new Map();
+      shown.forEach(it => {
+        const k = groupBy[state.group](it);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(it);
+      });
+      let keys = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+      const known = keys.filter(Boolean);
+      if (state.group === 'year' && state.sort === 'newest') known.reverse();
+      keys = known.concat(keys.filter(k => !k));          // "unknown" group last
+      keys.forEach(k => {
+        const h = mk('div', 'vgroup');
+        const name = mk('span');
+        name.textContent = groupLabel[state.group](k);
+        const n = mk('span', 'vgroup-count');
+        n.textContent = String(groups.get(k).length);
+        h.append(name, n);
+        frag.append(h);
+        groups.get(k).forEach(it => frag.append(itemEl(it)));
+      });
+    }
+    list.replaceChildren(frag);
+    if (!keepScroll) list.scrollTop = 0;
+  }
+
+  root.append(head, tools, list);
+  document.body.append(root);
+  render();
+
+  // YouTube videos without an author in places.js: ask YouTube, then redraw (batched)
+  let refreshTimer = null;
+  const queueRefresh = () => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => { fillAuthorOptions(); render(true); }, 150);
+  };
+  items.forEach(it => {
+    if (it.author) return;
+    const id = youtubeId(it.v.url);
+    if (!id) return;
+    fetchYouTubeAuthor(id).then(name => {
+      if (!name) return;
+      it.author = name;
+      authorCache[id] = name;
+      saveAuthorCache(authorCache);
+      queueRefresh();
+    }).catch(err => {
+      if (err.status === 401) markNoEmbed(id);  // embedding is disabled for this video
+      console.warn('Could not look up the author of "' + (it.v.title || id) + '" (' + id + '):', err);
     });
   });
-
-  root.append(head, list);
-  document.body.append(root);
 }
 
 function addVideoPlaces(map) {
@@ -325,7 +581,7 @@ function addVideoPlaces(map) {
         }
       }
     );
-    entries.push({ pos, videos });
+    entries.push({ pos, videos, name: place.name });
     new maplibregl.Marker({ element: el, anchor: 'bottom-left' })
       .setLngLat([pos.lng, pos.lat])
       .addTo(map);
