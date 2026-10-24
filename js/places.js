@@ -202,6 +202,13 @@ const PLACES = [
     ]
   },
   {
+    coords: '36.80188, 10.18689',
+    name: 'Tunis',
+    videos: [
+      { title: 'WWII in North Africa: Every Day', url: 'https://www.youtube.com/watch?v=CiKIn13qWf0', date: '1940-06-10 / 1943-05-13' }
+    ]
+  },
+  {
     coords: '48.14090, 17.10549',
     name: 'Bratislava',
     videos: [
