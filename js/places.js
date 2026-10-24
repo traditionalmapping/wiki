@@ -76,6 +76,27 @@ const PLACES = [
     ]
   },
   {
+    coords: '49.61197, 6.12887',
+    name: 'Luxembourg',
+    videos: [
+      { title: 'Invasion of Luxembourg - Every Hour', url: 'https://www.youtube.com/watch?v=4DDtmYAVPoA', date: '1940-05-10 / 1940-05-10' }
+    ]
+  },
+  {
+    coords: '52.37639, 4.89320',
+    name: 'Amsterdam',
+    videos: [
+      { title: 'The invasion of the Netherlands 1940, every hour', url: 'https://www.youtube.com/watch?v=_jIBmUMuadM', date: '1940-05-10 / 1940-05-27' }
+    ]
+  },
+  {
+    coords: '48.85520, 2.34945',
+    name: 'Paris',
+    videos: [
+      { title: 'World War II, Western Front 1940, Every Hour', url: 'https://www.youtube.com/watch?v=Zg7ZuET6oe4', date: '1940-05-10 / 1940-07-11' }
+    ]
+  },
+  {
     coords: '55.75040, 37.61734',
     name: 'Moscow',
     videos: [
