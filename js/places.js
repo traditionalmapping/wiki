@@ -179,7 +179,8 @@ const PLACES = [
     name: 'Helsinki',
     videos: [
       { title: 'WW2: The Continuation War: Every Day (Remake) [25.06.41 – 19.09.44] [4K]', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' },
-      { title: 'WWII - The Winter War/Советско-финляндская война/Talvisota (1939-1940): Every Day', url: 'https://www.youtube.com/watch?v=A94GgeX-FKI', date: '1939-11-30 / 1944-03-13' }
+      { title: 'WWII - The Winter War/Советско-финляндская война/Talvisota (1939-1940): Every Day', url: 'https://www.youtube.com/watch?v=A94GgeX-FKI', date: '1939-11-30 / 1944-03-13' },
+      { title: 'The War of Annihilation - Arctic front / Война на Уничтожение - Битва за Арктику', url: 'https://www.youtube.com/watch?v=rWMKx_xi0oU', date: '1941-06-22 / 1945-09-04' }
     ]
   },
   {
