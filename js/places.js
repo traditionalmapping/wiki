@@ -114,8 +114,7 @@ const PLACES = [
     coords: '44.81729, 20.45751',
     name: 'Belgrade',
     videos: [
-      { title: 'Axis Invasion on Yugoslavia(April War): Every Day', url: 'https://www.youtube.com/watch?v=wI85VvbGpuw', date: '1941-03-25 / 1941-04-25' },
-      { title: 'Yugoslav Partisans during World War II', url: 'https://www.youtube.com/watch?v=QMbnMtGmCms', date: '1941-07-04 / 1941-05-16' }
+      { title: 'Axis Invasion on Yugoslavia(April War): Every Day', url: 'https://www.youtube.com/watch?v=wI85VvbGpuw', date: '1941-03-25 / 1941-04-25' }
     ]
   },
   {
