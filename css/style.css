@@ -876,3 +876,12 @@ body.menu-open .crosshair { visibility: hidden; }
 .history-row input[type=range] { flex: 1; min-width: 0; accent-color: #c9a24b; }
 .history-status { font-size: 12px; line-height: 1.4; color: #e0a458; }
 .history-status[hidden] { display: none; }
+
+.menu-grid { grid-template-columns: repeat(6, 1fr); }
+.period { grid-column: span 2; }
+.period:nth-child(4) { grid-column: 2 / span 2; }
+.period:nth-child(5) { grid-column: 4 / span 2; }
+@media (max-width: 560px) {
+ .menu-grid { grid-template-columns: 1fr; }
+ .period, .period:nth-child(4), .period:nth-child(5) { grid-column: auto; }
+}
