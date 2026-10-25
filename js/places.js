@@ -177,7 +177,9 @@ const PLACES = [
     coords: '49.27541, -0.69913',
     name: 'Bayeux',
     videos: [
-      { title: 'WWII - Normandy landings (D-Day), Every Minute / 諾曼第登陸，每分鐘(1944.6.6)', url: 'https://www.youtube.com/watch?v=peQ-CsY19Ag', date: '1944-06-06 / 1945-06-07' }
+      { title: 'WWII - Normandy landings (D-Day), Every Minute / 諾曼第登陸，每分鐘(1944.6.6)', url: 'https://www.youtube.com/watch?v=peQ-CsY19Ag', date: '1944-06-06 / 1944-06-07' },
+      { title: 'WWII Western Front, Every Hour - [1] June 1944', url: 'https://www.youtube.com/watch?v=if6ZXR2d4J0', date: '1944-06-06 / 1944-07-01' },
+      { title: 'WWII Western Front, Every Hour - [2] July 1944', url: 'https://www.youtube.com/watch?v=U6NfMQIpYms', date: '1944-07-01 / 1944-07-31' }
     ]
   },
   {
