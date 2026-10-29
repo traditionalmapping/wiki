@@ -131,6 +131,7 @@ async function setBasemap(id) {
   addVideoPlaces(map); // panels from js/places.js
   initContinents(map);
   initHistory(map);    // History button, js/history.js
+  initBorders(map);    // Historical Borders button, js/borders.js
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => {

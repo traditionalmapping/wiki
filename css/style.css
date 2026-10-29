@@ -277,7 +277,7 @@ body.menu-open .crosshair { visibility: hidden; }
   top: 100%;
   width: 19px;
   height: 18px;
-  background: no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='19' height='18' viewBox='0 0 19 18'%3E%3Cpath d='M1 2V16L15 2Z' fill='%23151515'/%3E%3Cpath d='M1 0V16L17 0' fill='none' stroke='%23f2f2f2' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background: no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='19' height='18' viewBox='0 0 19 18'%3E%3Cpath d='M1 0V16L17 0Z' fill='%23151515'/%3E%3Cpath d='M1 0V16L17 0' fill='none' stroke='%23f2f2f2' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 .bubble-main { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; }
@@ -885,3 +885,19 @@ body.menu-open .crosshair { visibility: hidden; }
  .menu-grid { grid-template-columns: 1fr; }
  .period, .period:nth-child(4), .period:nth-child(5) { grid-column: auto; }
 }
+
+/* ---------- Historical Borders (bottom-left) ---------- */
+.borders-note { font-size: 12px; color: #999; }
+.borders-years { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.borders-year {
+  padding: 7px 0;
+  background: #121212;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #bbb;
+  font: inherit;
+  cursor: pointer;
+}
+.borders-year:hover { color: #fff; }
+.borders-year.active { background: #2e2e2e; border-color: #c9a24b; color: #fff; }
+.borders-year:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
