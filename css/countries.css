@@ -1,0 +1,186 @@
+/* ============================================================================
+   Countries: the Videos / Countries switch, waving flags, country panel, list
+   ============================================================================ */
+
+/* ---------- Videos / Countries button (inside the left panel) ---------- */
+.cmode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 10px 10px;
+  padding: 7px 10px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #121212;
+  color: #666;
+  font: 600 12px/1 system-ui, sans-serif;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.cmode:hover { border-color: #555; }
+.cmode:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+.cmode .on { color: #c9a24b; }
+.vpanel.collapsed .cmode { display: none; }
+
+/* What the panel shows in each mode */
+.vpanel.mode-countries > .vpanel-tools,
+.vpanel.mode-countries > .vpanel-list:not(.clist),
+.vpanel.mode-countries .vpanel-head > .vmodal-count:not(.countries-count) { display: none; }
+.vpanel:not(.mode-countries) > .ctools,
+.vpanel:not(.mode-countries) > .clist,
+.vpanel:not(.mode-countries) .countries-count { display: none; }
+.vpanel.collapsed .ctools { display: none; }
+
+.ctools { display: flex; padding: 0 10px 10px; }
+
+/* ---------- Country list (left panel) ---------- */
+.crow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 6px;
+  border-radius: 8px;
+  transition: background .15s ease;
+}
+.crow:hover { background: rgba(255, 255, 255, .05); }
+.crow-flagbtn { flex: none; padding: 0; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
+.crow-flag {
+  display: block;
+  width: 60px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 5px;
+  background: #26262a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .12);
+}
+.crow-flag.no-img { display: flex; align-items: center; justify-content: center; color: #9a9aa2; font: 700 13px/1 system-ui, sans-serif; }
+.crow-body { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.crow-name {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f0f0f2;
+  font: 600 13px/1.3 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.crow-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.crow-native { font-size: 11.5px; line-height: 1.3; color: #8a8a92; overflow-wrap: anywhere; }
+.crow-flagbtn:focus-visible,
+.crow-name:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+
+/* ---------- Waving flags on the map ---------- */
+/* (no position:... here: MapLibre positions the marker element itself) */
+.flagm {
+  display: none;
+  width: 44px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 1;
+}
+.countries-mode .flagm { display: block; }
+.flagm:hover { z-index: 5; }
+.flagm-pole {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+  height: 100%;
+  background: #e8e8e8;
+  box-shadow: 0 0 2px rgba(0, 0, 0, .8);
+  transform: translateX(-1px);
+}
+.flagm-canvas {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  display: block;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6));
+}
+.flagm:hover .flagm-canvas { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)) brightness(1.15); }
+.flagm-base {                          /* the dot sitting exactly on the capital */
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #0e0e0e;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, 50%);
+}
+.flagm:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 4px; }
+
+/* Countries mode hides the video panels on the map */
+.countries-mode .place { display: none; }
+
+/* ---------- Country panel (opens when a flag is clicked) ---------- */
+.cbody {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3e transparent;
+}
+.chead { display: flex; align-items: center; gap: 16px; padding: 2px 44px 16px 4px; }
+.cflag {
+  flex: none;
+  width: 112px;
+  height: 76px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #26262a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .14);
+}
+.cflag.no-img { display: flex; align-items: center; justify-content: center; color: #9a9aa2; font: 700 20px/1 system-ui, sans-serif; }
+.cnames { min-width: 0; }
+.cname { margin: 0; font: 650 22px/1.2 system-ui, sans-serif; color: #fff; overflow-wrap: anywhere; }
+.cnative { margin-top: 3px; font-size: 15px; line-height: 1.3; color: #aeb0b8; overflow-wrap: anywhere; }
+.cgov {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border: 1px solid rgba(201, 162, 75, .4);
+  border-radius: 999px;
+  background: rgba(201, 162, 75, .1);
+  color: #d8b45f;
+  font: 600 12px/1.3 system-ui, sans-serif;
+}
+.ccap { margin-top: 8px; font-size: 12px; color: #8a8a92; }
+.cdate { padding: 0 4px 10px; font-size: 12px; color: #999; }
+.cdate strong { color: #fff; }
+.cnone { padding: 4px 4px 8px; font-size: 13px; color: #777; }
+
+.csec { padding: 6px 4px 8px; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #9a9aa2; }
+.cleaders { display: flex; flex-direction: column; gap: 8px; }
+.cleader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .04);
+}
+.cleader-img {
+  flex: none;
+  width: 64px;
+  height: 76px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 8px;
+  background: #26262a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .12);
+}
+.cleader-img.no-img { display: flex; align-items: center; justify-content: center; color: #8a8a92; font: 700 20px/1 system-ui, sans-serif; }
+.cleader-info { min-width: 0; }
+.cleader-name { font-size: 15px; font-weight: 600; line-height: 1.3; color: #f4f4f6; }
+.cleader-role { margin-top: 3px; font-size: 12.5px; line-height: 1.35; color: #aaa; }
+.cleader-years { margin-top: 2px; font-size: 11.5px; color: #777; }
+
+@media (max-width: 480px) {
+  .chead { flex-direction: column; align-items: flex-start; padding-right: 4px; }
+}

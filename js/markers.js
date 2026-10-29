@@ -560,6 +560,7 @@ function createVideoPanel(entries, goTo) {
       console.warn('Could not look up the author of "' + (it.v.title || id) + '" (' + id + '):', err);
     });
   });
+  return root;
 }
 
 function addVideoPlaces(map) {
@@ -587,9 +588,10 @@ function addVideoPlaces(map) {
       .addTo(map);
   });
 
-  createVideoPanel(entries, pos =>
-    map.flyTo({ center: [pos.lng, pos.lat], zoom: Math.max(map.getZoom(), LABEL_MIN_ZOOM + 1), duration: 1200 })
-  );
+  const flyToPos = pos =>
+    map.flyTo({ center: [pos.lng, pos.lat], zoom: Math.max(map.getZoom(), LABEL_MIN_ZOOM + 1), duration: 1200 });
+  const panelRoot = createVideoPanel(entries, flyToPos);
+  if (typeof initCountries === 'function') initCountries(map, panelRoot, flyToPos); // Videos/Countries switch, js/countries.js
 
   const update = () => map.getContainer().classList.toggle('labels-off', map.getZoom() < LABEL_MIN_ZOOM);
   map.on('zoom', update);
