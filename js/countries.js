@@ -138,11 +138,395 @@ const COUNTRIES = [
     code: 'FR',
     capital: 'Paris',
     coords: '48.85347, 2.34835',
-    government: 'Parliamentary republic under an authoritarian regime',
+    government: 'Parliamentary republic (Third Republic)',
     flag: wiki('Flag_of_France.svg'),
     leaders: [
-      { name: 'Ignacy Mościcki', role: 'President', from: '1926-06-04', to: '1939-09-30', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ignacy%20Mo%C5%9Bcicki%20(-1934).jpg?width=300' },
-      { name: 'Edward Rydz-Śmigły', role: 'Marshal of Poland, Commander-in-Chief', from: '1939-09-01', to: '1939-09-17', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Edward_%C5%9Amig%C5%82y-Rydz_portrait,_1939.png?width=300' }
+      { name: 'Albert Lebrun', role: 'President', from: '1932-05-10', to: '1940-07-11', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Albert%20Lebrun%201932%20(2).jpg?width=300' },
+      { name: 'Édouard Daladier', role: 'Prime Minister', from: '1938-04-10', to: '1940-03-21', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/%C3%89douard%20Daladier.jpg?width=300' },
+      { name: 'Maurice Gamelin', role: 'Commander-in-Chief', from: '1939-09-03', to: '1940-05-19', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Maurice%20Gustave%20Gamelin.jpg?width=300' }
+    ]
+  },
+  {
+    name: 'Italy',
+    native: 'Regno d\u2019Italia',
+    code: 'IT',
+    capital: 'Rome',
+    coords: '41.89193, 12.51133',
+    government: 'Fascist dictatorship under a constitutional monarchy',
+    flag: wiki('Flag of Italy (1861–1946).svg'),
+    leaders: [
+      { name: 'Victor Emmanuel III', role: 'King', from: '1900-07-29', to: '1946-05-09', image: wiki('Vittorio Emanuele III (c. 1924-1934).jpg') },
+      { name: 'Benito Mussolini', role: 'Prime Minister (Duce)', from: '1922-10-31', to: '1943-07-25', image: wiki('Mussolini mezzobusto.jpg') },
+      { name: 'Galeazzo Ciano', role: 'Minister of Foreign Affairs', from: '1936-06-09', to: '1943-02-05', image: '' }
+    ]
+  },
+  {
+    name: 'Spain',
+    native: 'Estado Español',
+    code: 'ES',
+    capital: 'Madrid',
+    coords: '40.41650, -3.70256',
+    government: 'Francoist dictatorship (one-party Nationalist state; Civil War ended 1 April 1939)',
+    flag: wiki('Flag of Spain (1938–1945).svg'),
+    leaders: [
+      { name: 'Francisco Franco', role: 'Caudillo, Head of State and Prime Minister', from: '1936-10-01', to: '1975-11-20', image: wiki('Francisco Franco 1930 (cropped).jpg') },
+      { name: 'Juan Beigbeder', role: 'Minister of Foreign Affairs', from: '1939-08-09', to: '1940-10-16', image: '' }
+    ]
+  },
+  {
+    name: 'Portugal',
+    native: 'República Portuguesa',
+    code: 'PT',
+    capital: 'Lisbon',
+    coords: '38.72225, -9.13934',
+    government: 'Authoritarian one-party corporatist regime (Estado Novo)',
+    flag: wiki('Flag of Portugal.svg'),
+    leaders: [
+      { name: 'Óscar Carmona', role: 'President', from: '1926-11-29', to: '1951-04-18', image: '' },
+      { name: 'António de Oliveira Salazar', role: 'President of the Council of Ministers (Prime Minister)', from: '1932-07-05', to: '1968-09-27', image: wiki('Antonio Salazar-1.jpg') }
+    ]
+  },
+  {
+    name: 'Ireland',
+    native: 'Éire',
+    code: 'IE',
+    capital: 'Dublin',
+    coords: '53.34981, -6.26031',
+    government: 'Parliamentary democracy (Éire, 1937 Constitution), neutral',
+    flag: wiki('Flag of Ireland.svg'),
+    leaders: [
+      { name: 'Douglas Hyde', role: 'President', from: '1938-06-25', to: '1945-06-24', image: '' },
+      { name: 'Éamon de Valera', role: 'Taoiseach (Prime Minister)', from: '1937-12-29', to: '1948-02-18', image: '' }
+    ]
+  },
+  {
+    name: 'Belgium',
+    native: 'Belgique / België',
+    code: 'BE',
+    capital: 'Brussels',
+    coords: '50.85034, 4.35171',
+    government: 'Constitutional monarchy, parliamentary democracy',
+    flag: wiki('Flag of Belgium.svg'),
+    leaders: [
+      { name: 'Leopold III', role: 'King of the Belgians', from: '1934-02-23', to: '1951-07-16', image: '' },
+      { name: 'Hubert Pierlot', role: 'Prime Minister', from: '1939', to: '1945-02-12', image: '' }
+    ]
+  },
+  {
+    name: 'Netherlands',
+    native: 'Nederland',
+    code: 'NL',
+    capital: 'Amsterdam',
+    coords: '52.37403, 4.88969',
+    government: 'Constitutional monarchy, parliamentary democracy',
+    flag: wiki('Flag of the Netherlands.svg'),
+    leaders: [
+      { name: 'Wilhelmina', role: 'Queen', from: '1890-11-23', to: '1948-09-04', image: '' },
+      { name: 'Dirk Jan de Geer', role: 'Prime Minister', from: '1939-08-10', to: '1940-09-03', image: '' }
+    ]
+  },
+  {
+    name: 'Luxembourg',
+    native: 'Lëtzebuerg',
+    code: 'LU',
+    capital: 'Luxembourg City',
+    coords: '49.61167, 6.13000',
+    government: 'Constitutional monarchy (Grand Duchy), parliamentary democracy',
+    flag: wiki('Flag of Luxembourg.svg'),
+    leaders: [
+      { name: 'Charlotte', role: 'Grand Duchess', from: '1919-11-15', to: '1964-11-12', image: '' },
+      { name: 'Pierre Dupong', role: 'Prime Minister', from: '1937-11-06', to: '1953-12-23', image: '' }
+    ]
+  },
+  {
+    name: 'Denmark',
+    native: 'Danmark',
+    code: 'DK',
+    capital: 'Copenhagen',
+    coords: '55.67594, 12.56553',
+    government: 'Constitutional monarchy, parliamentary democracy',
+    flag: wiki('Flag of Denmark.svg'),
+    leaders: [
+      { name: 'Christian X', role: 'King', from: '1912-05-14', to: '1947-04-20', image: '' },
+      { name: 'Thorvald Stauning', role: 'Prime Minister', from: '1929-04-30', to: '1942-05-03', image: '' }
+    ]
+  },
+  {
+    name: 'Norway',
+    native: 'Norge',
+    code: 'NO',
+    capital: 'Oslo',
+    coords: '59.91273, 10.74609',
+    government: 'Constitutional monarchy, parliamentary democracy',
+    flag: wiki('Flag of Norway.svg'),
+    leaders: [
+      { name: 'Haakon VII', role: 'King', from: '1905-11-18', to: '1957-09-21', image: '' },
+      { name: 'Johan Nygaardsvold', role: 'Prime Minister', from: '1935-03-20', to: '1945-06-25', image: '' }
+    ]
+  },
+  {
+    name: 'Sweden',
+    native: 'Sverige',
+    code: 'SE',
+    capital: 'Stockholm',
+    coords: '59.32932, 18.06858',
+    government: 'Constitutional monarchy, parliamentary democracy, neutral',
+    flag: wiki('Flag of Sweden.svg'),
+    leaders: [
+      { name: 'Gustaf V', role: 'King', from: '1907-12-08', to: '1950-10-29', image: '' },
+      { name: 'Per Albin Hansson', role: 'Prime Minister', from: '1936-06-19', to: '1946-10-06', image: '' }
+    ]
+  },
+  {
+    name: 'Finland',
+    native: 'Suomi',
+    code: 'FI',
+    capital: 'Helsinki',
+    coords: '60.16952, 24.93545',
+    government: 'Parliamentary republic with a strong president',
+    flag: wiki('Flag of Finland.svg'),
+    leaders: [
+      { name: 'Kyösti Kallio', role: 'President', from: '1937-03-01', to: '1940-12-19', image: '' },
+      { name: 'Aimo Cajander', role: 'Prime Minister', from: '1937-10-12', to: '1939-12-01', image: '' },
+      { name: 'Risto Ryti', role: 'Prime Minister', from: '1939-12-01', to: '1940-03-27', image: '' }
+    ]
+  },
+  {
+    name: 'Iceland',
+    native: 'Ísland',
+    code: 'IS',
+    capital: 'Reykjavík',
+    coords: '64.13548, -21.89541',
+    government: 'Kingdom of Iceland: constitutional monarchy in personal union with Denmark',
+    flag: wiki('Flag of Iceland.svg'),
+    leaders: [
+      { name: 'Christian X', role: 'King of Iceland', from: '1918-12-01', to: '1944-06-17', image: '' },
+      { name: 'Hermann Jónasson', role: 'Prime Minister', from: '1934-07-28', to: '1942-11-16', image: '' }
+    ]
+  },
+  {
+    name: 'Estonia',
+    native: 'Eesti',
+    code: 'EE',
+    capital: 'Tallinn',
+    coords: '59.43696, 24.75357',
+    government: 'Authoritarian presidential republic (the “Era of Silence”)',
+    flag: wiki('Flag of Estonia.svg'),
+    leaders: [
+      { name: 'Konstantin Päts', role: 'President', from: '1933', to: '1940-07-21', image: '' },
+      { name: 'Kaarel Eenpalu', role: 'Prime Minister', from: '1938-10-12', to: '1939-10-12', image: '' },
+      { name: 'Jüri Uluots', role: 'Prime Minister', from: '1939-10-12', to: '1940-06-21', image: '' }
+    ]
+  },
+  {
+    name: 'Latvia',
+    native: 'Latvija',
+    code: 'LV',
+    capital: 'Riga',
+    coords: '56.94600, 24.10589',
+    government: 'Authoritarian one-man regime (Ulmanis, since the 1934 coup)',
+    flag: wiki('Flag of Latvia.svg'),
+    leaders: [
+      { name: 'Kārlis Ulmanis', role: 'President and Prime Minister', from: '1934-03-17', to: '1940-06-20', image: '' }
+    ]
+  },
+  {
+    name: 'Lithuania',
+    native: 'Lietuva',
+    code: 'LT',
+    capital: 'Kaunas',
+    coords: '54.89870, 23.90360',
+    government: 'Authoritarian one-party regime (Nationalist Union); Kaunas is the provisional capital',
+    flag: wiki('Flag of Lithuania (1918–1940).svg'),
+    leaders: [
+      { name: 'Antanas Smetona', role: 'President', from: '1926-12-19', to: '1940-06-15', image: '' },
+      { name: 'Jonas Černius', role: 'Prime Minister', from: '1939-03-28', to: '1939-11-21', image: '' },
+      { name: 'Antanas Merkys', role: 'Prime Minister', from: '1939-11-21', to: '1940-06-17', image: '' }
+    ]
+  },
+  {
+    name: 'Switzerland',
+    native: 'Schweiz / Suisse / Svizzera',
+    code: 'CH',
+    capital: 'Bern',
+    coords: '46.94809, 7.44744',
+    government: 'Federal directorial republic (Federal Council), neutral',
+    flag: wiki('Flag of Switzerland.svg'),
+    leaders: [
+      { name: 'Philipp Etter', role: 'President of the Swiss Confederation (Federal Council)', from: '1939-01-01', to: '1940-01-01', image: '' }
+    ]
+  },
+  {
+    name: 'Liechtenstein',
+    native: '',
+    code: 'LI',
+    capital: 'Vaduz',
+    coords: '47.14151, 9.52154',
+    government: 'Constitutional monarchy (principality)',
+    flag: wiki('Flag of Liechtenstein.svg'),
+    leaders: [
+      { name: 'Franz Joseph II', role: 'Prince', from: '1938-07-25', to: '1989-11-13', image: '' },
+      { name: 'Josef Hoop', role: 'Head of Government', from: '1928-09-03', to: '1945-09-03', image: '' }
+    ]
+  },
+  {
+    name: 'Monaco',
+    native: '',
+    code: 'MC',
+    capital: 'Monaco',
+    coords: '43.73841, 7.42461',
+    government: 'Hereditary principality (monarchy)',
+    flag: wiki('Flag of Monaco.svg'),
+    leaders: [
+      { name: 'Louis II', role: 'Sovereign Prince', from: '1922-06-02', to: '1949-05-09', image: '' },
+      { name: 'Émile Roblot', role: 'Minister of State', from: '1937', to: '1944', image: '' }
+    ]
+  },
+  {
+    name: 'Andorra',
+    native: '',
+    code: 'AD',
+    capital: 'Andorra la Vella',
+    coords: '42.50631, 1.52180',
+    government: 'Parliamentary co-principality (two co-princes)',
+    flag: wiki('Flag of Andorra.svg'),
+    leaders: [
+      { name: 'Albert Lebrun', role: 'French Co-Prince (President of France)', from: '1932-05-10', to: '1940-07-11', image: wiki('Albert Lebrun 1932 (2).jpg') },
+      { name: 'Justí Guitart i Vilardebó', role: 'Episcopal Co-Prince (Bishop of Urgell)', from: '1920', to: '1940', image: '' }
+    ]
+  },
+  {
+    name: 'San Marino',
+    native: '',
+    code: 'SM',
+    capital: 'San Marino',
+    coords: '43.93667, 12.44639',
+    government: 'Republic led by two Captains Regent (Fascist Party in power)',
+    flag: wiki('Flag of San Marino.svg'),
+    leaders: [
+      { name: 'Pompeo Righi', role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' },
+      { name: 'Marino Morri', role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' }
+    ]
+  },
+  {
+    name: 'Vatican City',
+    native: 'Città del Vaticano',
+    code: 'VA',
+    capital: 'Vatican City',
+    coords: '41.90217, 12.45337',
+    government: 'Absolute elective monarchy (Holy See)',
+    flag: wiki('Flag of the Vatican City.svg'),
+    leaders: [
+      { name: 'Pius XII', role: 'Pope', from: '1939-03-02', to: '1958-10-09', image: '' },
+      { name: 'Luigi Maglione', role: 'Cardinal Secretary of State', from: '1939-03-10', to: '1944-08-22', image: '' }
+    ]
+  },
+  {
+    name: 'Hungary',
+    native: 'Magyar Királyság',
+    code: 'HU',
+    capital: 'Budapest',
+    coords: '47.49801, 19.03991',
+    government: 'Regency (kingdom without a king), authoritarian parliamentary system',
+    flag: wiki('Flag of Hungary.svg'),
+    leaders: [
+      { name: 'Miklós Horthy', role: 'Regent', from: '1920-03-01', to: '1944-10-16', image: '' },
+      { name: 'Pál Teleki', role: 'Prime Minister', from: '1939-02-16', to: '1941-04-03', image: '' }
+    ]
+  },
+  {
+    name: 'Romania',
+    native: 'Regatul României',
+    code: 'RO',
+    capital: 'Bucharest',
+    coords: '44.43225, 26.10626',
+    government: 'Royal dictatorship (since 1938)',
+    flag: wiki('Flag of Romania.svg'),
+    leaders: [
+      { name: 'Carol II', role: 'King', from: '1930-06-08', to: '1940-09-06', image: '' },
+      { name: 'Armand Călinescu', role: 'Prime Minister', from: '1939-03-07', to: '1939-09-21', image: '' }
+    ]
+  },
+  {
+    name: 'Bulgaria',
+    native: 'Царство България',
+    code: 'BG',
+    capital: 'Sofia',
+    coords: '42.69751, 23.32415',
+    government: 'Authoritarian monarchy (royal dictatorship, since 1935)',
+    flag: wiki('Flag of Bulgaria.svg'),
+    leaders: [
+      { name: 'Boris III', role: 'Tsar', from: '1918-10-03', to: '1943-08-28', image: '' },
+      { name: 'Georgi Kyoseivanov', role: 'Prime Minister', from: '1935-11-22', to: '1940-02-15', image: '' }
+    ]
+  },
+  {
+    name: 'Yugoslavia',
+    native: 'Краљевина Југославија',
+    code: 'YU',
+    capital: 'Belgrade',
+    coords: '44.80401, 20.46513',
+    government: 'Constitutional monarchy under a regency',
+    flag: wiki('Flag of Yugoslavia (1918–1943).svg'),
+    leaders: [
+      { name: 'Peter II', role: 'King (a minor)', from: '1934-10-09', to: '1945-11-29', image: '' },
+      { name: 'Prince Paul', role: 'Regent', from: '1934-10-09', to: '1941-03-27', image: '' },
+      { name: 'Dragiša Cvetković', role: 'Prime Minister', from: '1939-02-05', to: '1941-03-27', image: '' }
+    ]
+  },
+  {
+    name: 'Greece',
+    native: 'Βασίλειον τῆς Ἑλλάδος',
+    code: 'GR',
+    capital: 'Athens',
+    coords: '37.98381, 23.72754',
+    government: 'Authoritarian monarchy (4th of August Regime)',
+    flag: wiki('Flag of Greece (1822-1978).svg'),
+    leaders: [
+      { name: 'George II', role: 'King of the Hellenes', from: '1935-11-25', to: '1947-04-01', image: '' },
+      { name: 'Ioannis Metaxas', role: 'Prime Minister (dictator)', from: '1936-04-13', to: '1941-01-29', image: '' }
+    ]
+  },
+  {
+    name: 'Albania',
+    native: 'Mbretëria Shqiptare',
+    code: 'AL',
+    capital: 'Tirana',
+    coords: '41.32754, 19.81889',
+    government: 'Italian protectorate: kingdom in personal union with Italy (since 7–16 April 1939)',
+    flag: wiki('Flag of Albania (1939–1943).svg'),
+    leaders: [
+      { name: 'Victor Emmanuel III', role: 'King of the Albanians', from: '1939-04-16', to: '1943-09-08', image: wiki('Vittorio Emanuele III (c. 1924-1934).jpg') },
+      { name: 'Francesco Jacomoni', role: 'Lieutenant-General (Italian viceroy)', from: '1939-04-16', to: '1943', image: '' },
+      { name: 'Shefqet Vërlaci', role: 'Prime Minister', from: '1939-04-12', to: '1941', image: '' }
+    ]
+  },
+  {
+    name: 'Protectorate of Bohemia and Moravia',
+    native: 'Protektorát Čechy a Morava',
+    code: 'CZ',
+    capital: 'Prague',
+    coords: '50.08804, 14.42076',
+    government: 'German protectorate with nominal autonomy (since 15 March 1939)',
+    flag: wiki('Flag of the Protectorate of Bohemia and Moravia.svg'),
+    leaders: [
+      { name: 'Emil Hácha', role: 'State President', from: '1938-11-30', to: '1945-05-09', image: '' },
+      { name: 'Konstantin von Neurath', role: 'Reich Protector (German governor)', from: '1939-03-18', to: '1943-08-24', image: '' },
+      { name: 'Alois Eliáš', role: 'Prime Minister', from: '1939-04-27', to: '1941-09-28', image: '' }
+    ]
+  },
+  {
+    name: 'Slovakia',
+    native: 'Slovenská republika',
+    code: 'SK',
+    capital: 'Bratislava',
+    coords: '48.14816, 17.10674',
+    government: 'One-party clerical-nationalist client state of Germany (independent since 14 March 1939)',
+    flag: wiki('Flag of Slovakia (1939–1945).svg'),
+    leaders: [
+      { name: 'Jozef Tiso', role: 'Prime Minister', from: '1939-03-14', to: '1939-10-26', image: '' },
+      { name: 'Jozef Tiso', role: 'President', from: '1939-10-26', to: '1945-04-04', image: '' },
+      { name: 'Vojtech Tuka', role: 'Prime Minister', from: '1940-07-27', to: '1944-09-05', image: '' }
     ]
   },
 ];
