@@ -910,3 +910,28 @@ body.menu-open .crosshair { visibility: hidden; }
 .history .history-toggle.active:not(:disabled):hover { background-color: #383838; }
 .history .borders-year:not(:disabled):hover { background-color: #121212; }
 .history .borders-year.active:not(:disabled):hover { background-color: #2e2e2e; }
+
+/* Country panel: side in the war + key events */
+.cstatus { margin-top: 8px; }
+.cstatus-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); color: #c9ccd2;
+}
+.cstatus-pill.allies   { background: rgba(106,169,255,.14); border-color: rgba(106,169,255,.45); color: #8ebcff; }
+.cstatus-pill.axis     { background: rgba(229,103,90,.14);  border-color: rgba(229,103,90,.45);  color: #f0877b; }
+.cstatus-pill.occupied { background: rgba(180,138,224,.14); border-color: rgba(180,138,224,.45); color: #c6a5ec; }
+.cstatus-text { margin-top: 6px; font-size: 12.5px; line-height: 1.4; color: #9a9aa2; }
+
+.cevents { display: flex; flex-direction: column; gap: 6px; }
+.cevent {
+  display: flex; gap: 14px; align-items: baseline;
+  padding: 9px 12px; border-radius: 10px;
+  background: #1c1c1c; border: 1px solid rgba(255,255,255,.07);
+}
+.cevent-date { flex: 0 0 118px; font-size: 12px; color: #c9a24b; font-variant-numeric: tabular-nums; }
+.cevent-text { font-size: 13.5px; line-height: 1.4; color: #e6e6e8; }
+@media (max-width: 520px) {
+  .cevent { flex-direction: column; gap: 2px; }
+  .cevent-date { flex: none; }
+}

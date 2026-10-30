@@ -49,9 +49,11 @@ class BordersControl {
   constructor(map) {
     this.map = map;
     this.on = false;
-    this.year = BORDER_YEARS[0];
     this.cache = {};      // year -> loaded GeoJSON
   }
+
+  // The year is chosen with the separate YearControl (always visible, works with borders OFF).
+  get year() { return selectedBorderYear; }
 
   onAdd() {
     const el = this.el = document.createElement('div');
@@ -64,33 +66,17 @@ class BordersControl {
     toggle.setAttribute('aria-pressed', 'false');
     toggle.addEventListener('click', () => this.setOn(!this.on));
 
+    // Only shows messages (missing file, etc.); hidden while there is nothing to say.
     const panel = this.panel = document.createElement('div');
     panel.className = 'history-panel';
     panel.hidden = true;
-
-    const note = this.note = document.createElement('div');
-    note.className = 'borders-note';
-
-    const years = document.createElement('div');
-    years.className = 'borders-years';
-    this.yearButtons = BORDER_YEARS.map(y => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'borders-year';
-      b.textContent = y;
-      b.dataset.year = y;
-      b.addEventListener('click', () => this.setYear(y));
-      years.append(b);
-      return b;
-    });
 
     this.status = document.createElement('div');
     this.status.className = 'history-status';
     this.status.hidden = true;
 
-    panel.append(note, years, this.status);
+    panel.append(this.status);
     el.append(panel, toggle);
-    this.refreshButtons();
     return el;
   }
 
@@ -101,25 +87,14 @@ class BordersControl {
     this.toggle.classList.toggle('active', value);
     this.toggle.textContent = value ? 'Historical Borders: ON' : 'Historical Borders: OFF';
     this.toggle.setAttribute('aria-pressed', String(value));
-    this.panel.hidden = !value;
     this.apply();
     if (value) this.load();
     else this.say('');
   }
 
-  setYear(year) {
-    this.year = year;
-    selectedBorderYear = year;
-    document.dispatchEvent(new CustomEvent('borderyearchange', { detail: { year } }));
-    this.refreshButtons();
-    this.load();
-  }
-
-  refreshButtons() {
-    this.yearButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === this.year));
-    const date = document.createElement('strong');
-    date.textContent = borderDate(this.year);
-    this.note.replaceChildren('Situation on ', date);
+  // Called when the year changes: reload the outline only if the borders are showing.
+  onYear() {
+    if (this.on) this.load();
   }
 
   // (Re)draws the layer; also called after every base map switch.
@@ -243,12 +218,66 @@ class BordersControl {
   say(text) {
     this.status.textContent = text;
     this.status.hidden = !text;
+    this.panel.hidden = !text;
+  }
+}
+
+// ---- The year picker: its own control, always visible, independent of the borders button ----
+class YearControl {
+  constructor(onChange) { this.onChange = onChange; }
+
+  onAdd() {
+    const el = this.el = document.createElement('div');
+    el.className = 'maplibregl-ctrl history borders-years-ctrl';
+
+    const panel = document.createElement('div');
+    panel.className = 'history-panel';
+
+    const note = this.note = document.createElement('div');
+    note.className = 'borders-note';
+
+    const years = document.createElement('div');
+    years.className = 'borders-years';
+    this.yearButtons = BORDER_YEARS.map(y => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'borders-year';
+      b.textContent = y;
+      b.dataset.year = y;
+      b.addEventListener('click', () => this.setYear(y));
+      years.append(b);
+      return b;
+    });
+
+    panel.append(note, years);
+    el.append(panel);
+    this.refresh();
+    return el;
+  }
+
+  onRemove() { this.el.remove(); }
+
+  setYear(year) {
+    if (year === selectedBorderYear) return;
+    selectedBorderYear = year;
+    document.dispatchEvent(new CustomEvent('borderyearchange', { detail: { year } }));
+    this.refresh();
+    this.onChange();
+  }
+
+  refresh() {
+    this.yearButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === selectedBorderYear));
+    const date = document.createElement('strong');
+    date.textContent = borderDate(selectedBorderYear);
+    this.note.replaceChildren('Situation on ', date);
   }
 }
 
 function initBorders(map) {
   const control = new BordersControl(map);
   map.addControl(control, 'bottom-left');
+  // Added after the Borders button, so it sits just above it (later controls stack upward).
+  map.addControl(new YearControl(() => control.onYear()), 'bottom-left');
   onStyleReady(() => control.apply()); // keep the outline when the base map changes
 
   // Safety net: some base map switches update the style in place and never fire

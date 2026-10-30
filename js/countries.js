@@ -15,6 +15,12 @@
 //    government  - government type. Either plain text, or a list that changes
 //                  with the date:  [ { from: '1933-03-23', text: '...' }, ... ]
 //    flag        - the flag image (see "Images" below)
+//    status      - side in the war on a date: a list of
+//                  { from, to, side: 'axis' | 'allies' | 'neutral' | 'occupied', text }
+//                  (same from/to rule as leaders). Nothing is shown if no entry
+//                  matches the map date.
+//    events      - list of { date: 'YYYY-MM-DD', text }. The panel shows up to 5 events
+//                  from the 12 months BEFORE the map date (up to and including it).
 //    leaders     - list of { name, role, from, to, image }
 //                  Leaders WITHOUT an image get their photo automatically from
 //                  their English Wikipedia article (found by the leader's name).
@@ -54,6 +60,17 @@ const COUNTRIES = [
       { from: '1945-05-23', text: 'Allied occupation, no German government (Berlin Declaration, 5 June 1945)' }
     ],
     flag: wiki('Flag of Germany (1935\u20131945).svg'),
+    status: [
+      { to: '1940-01-01', side: 'axis', text: 'Invades Poland on 1 September 1939, starting the war in Europe.' }
+    ],
+    events: [
+      { date: '1938-09-30', text: 'Munich Agreement signed: the Sudetenland is handed to Germany' },
+      { date: '1938-11-09', text: 'Kristallnacht pogrom across Germany and Austria' },
+      { date: '1939-03-15', text: 'German troops occupy the rest of Bohemia and Moravia' },
+      { date: '1939-03-23', text: 'Memel Territory annexed from Lithuania' },
+      { date: '1939-08-23', text: 'Molotov–Ribbentrop Pact signed in Moscow' },
+      { date: '1939-09-01', text: 'Invasion of Poland begins; Danzig is annexed' }
+    ],
     leaders: [
       { name: 'Adolf Hitler', role: 'F\u00FChrer and Chancellor', from: '1933-01-30', to: '1945-04-30', image: '' },
       { name: 'Dwight D. Eisenhower', role: 'Allied commander-in-chief (United States zone)', from: '1945-06-05', image: '' },
@@ -70,6 +87,17 @@ const COUNTRIES = [
     coords: '51.50735, -0.12776',
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of the United Kingdom (3-5).svg'),
+    status: [
+      { to: '1939-09-03', side: 'allies', text: 'Ally of Poland. Not yet at war with Germany.' },
+      { from: '1939-09-03', to: '1940-01-01', side: 'allies', text: 'At war with Germany since 3 September 1939.' }
+    ],
+    events: [
+      { date: '1938-09-30', text: 'Chamberlain returns from Munich promising “peace for our time”' },
+      { date: '1939-03-31', text: 'Britain guarantees Poland’s independence' },
+      { date: '1939-04-26', text: 'Conscription introduced (Military Training Act)' },
+      { date: '1939-08-25', text: 'Anglo-Polish Treaty of Mutual Assistance signed' },
+      { date: '1939-09-01', text: 'Evacuation of children from the cities begins' }
+    ],
     leaders: [
       { name: 'George VI', role: 'King', from: '1936-12-11', to: '1952-02-06', image: '' },
       { name: 'Neville Chamberlain', role: 'Prime Minister', from: '1937-05-28', to: '1940-05-10', image: '' },
@@ -85,6 +113,17 @@ const COUNTRIES = [
     coords: '55.75040, 37.61734',
     government: 'One-party Marxist\u2013Leninist state',
     flag: wiki('Flag of the Soviet Union (1936\u20131955).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Bound to Germany by the Molotov–Ribbentrop Pact (23 August 1939).' }
+    ],
+    events: [
+      { date: '1939-03-10', text: 'Stalin warns at the 18th Party Congress against being drawn into others’ wars' },
+      { date: '1939-05-03', text: 'Molotov replaces Litvinov as Foreign Commissar' },
+      { date: '1939-08-20', text: 'Zhukov’s offensive begins at Khalkhin Gol against Japan' },
+      { date: '1939-08-23', text: 'Molotov–Ribbentrop Pact signed' },
+      { date: '1939-08-31', text: 'Supreme Soviet ratifies the pact with Germany' },
+      { date: '1939-09-01', text: 'Universal military service law adopted' }
+    ],
     leaders: [
       { name: 'Joseph Stalin', role: 'General Secretary of the Communist Party', from: '1922-04-03', to: '1941-05-06', image: '' },
       { name: 'Joseph Stalin', role: 'General Secretary of the Communist Party and Premier', from: '1941-05-06', to: '1953-03-05', image: '' },
@@ -100,6 +139,14 @@ const COUNTRIES = [
     coords: '38.89511, -77.03637',
     government: 'Federal presidential constitutional republic',
     flag: wiki('Flag of the United States (1912\u20131959).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutrality Acts limit arms sales to countries at war.' }
+    ],
+    events: [
+      { date: '1939-07-26', text: 'US gives notice to end its 1911 trade treaty with Japan' },
+      { date: '1939-08-02', text: 'Einstein–Szilárd letter warns Roosevelt about atomic weapons' },
+      { date: '1939-09-01', text: 'Roosevelt appeals to all sides not to bomb civilians' }
+    ],
     leaders: [
       { name: 'Franklin D. Roosevelt', role: 'President', from: '1933-03-04', to: '1945-04-12', image: '' },
       { name: 'Harry S. Truman', role: 'President', from: '1945-04-12', to: '1953-01-20', image: '' }
@@ -113,6 +160,16 @@ const COUNTRIES = [
     coords: '35.68950, 139.69171',
     government: 'Constitutional monarchy under a militarist government',
     flag: wiki('Flag of Japan (1870\u20131999).svg'),
+    status: [
+      { to: '1940-01-01', side: 'axis', text: 'Anti-Comintern Pact member. At war with China since 1937.' }
+    ],
+    events: [
+      { date: '1938-11-03', text: 'Konoe announces a “New Order” in East Asia' },
+      { date: '1939-02-10', text: 'Japanese forces occupy Hainan' },
+      { date: '1939-05-11', text: 'Border war with the Soviet Union begins at Khalkhin Gol' },
+      { date: '1939-08-28', text: 'Hiranuma cabinet resigns after the German–Soviet pact' },
+      { date: '1939-08-30', text: 'Nobuyuki Abe becomes Prime Minister' }
+    ],
     leaders: [
       { name: 'Hirohito', role: 'Emperor', from: '1926-12-25', to: '1989-01-07', image: '' },
       { name: 'Nobuyuki Abe', role: 'Prime Minister', from: '1939-08-30', to: '1940-01-16', image: '' },
@@ -131,6 +188,17 @@ const COUNTRIES = [
     coords: '52.22970, 21.01220',
     government: 'Parliamentary republic under an authoritarian regime',
     flag: wiki('Flag_of_Poland_(1928–1980).svg'),
+    status: [
+      { to: '1940-01-01', side: 'allies', text: 'Invaded by Germany on 1 September 1939.' }
+    ],
+    events: [
+      { date: '1938-10-02', text: 'Poland occupies Zaolzie (Czechoslovak Teschen Silesia)' },
+      { date: '1939-03-31', text: 'Britain gives Poland a guarantee of independence' },
+      { date: '1939-04-28', text: 'Hitler denounces the German–Polish non-aggression pact' },
+      { date: '1939-08-25', text: 'Anglo-Polish alliance signed in London' },
+      { date: '1939-08-30', text: 'Mobilisation ordered' },
+      { date: '1939-09-01', text: 'German invasion begins; Westerplatte and Wieluń attacked' }
+    ],
     leaders: [
       { name: 'Ignacy Mościcki', role: 'President', from: '1926-06-04', to: '1939-09-30', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ignacy%20Mo%C5%9Bcicki%20(-1934).jpg?width=300' },
       { name: 'Edward Rydz-Śmigły', role: 'Marshal of Poland, Commander-in-Chief', from: '1939-09-01', to: '1939-09-17', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Edward_%C5%9Amig%C5%82y-Rydz_portrait,_1939.png?width=300' }
@@ -144,6 +212,16 @@ const COUNTRIES = [
     coords: '48.85347, 2.34835',
     government: 'Parliamentary republic (Third Republic)',
     flag: wiki('Flag_of_France.svg'),
+    status: [
+      { to: '1939-09-03', side: 'allies', text: 'Ally of Poland. Not yet at war with Germany.' },
+      { from: '1939-09-03', to: '1940-01-01', side: 'allies', text: 'At war with Germany since 3 September 1939.' }
+    ],
+    events: [
+      { date: '1938-09-30', text: 'Daladier signs the Munich Agreement' },
+      { date: '1939-03-31', text: 'France backs Britain’s guarantee of Poland' },
+      { date: '1939-04-13', text: 'Britain and France guarantee Romania and Greece' },
+      { date: '1939-09-01', text: 'General mobilisation ordered' }
+    ],
     leaders: [
       { name: 'Albert Lebrun', role: 'President', from: '1932-05-10', to: '1940-07-11', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Albert%20Lebrun%201932%20(2).jpg?width=300' },
       { name: 'Édouard Daladier', role: 'Prime Minister', from: '1938-04-10', to: '1940-03-21', image: 'https://commons.wikimedia.org/wiki/Special:FilePath/%C3%89douard%20Daladier.jpg?width=300' },
@@ -158,6 +236,15 @@ const COUNTRIES = [
     coords: '41.89193, 12.51133',
     government: 'Fascist dictatorship under a constitutional monarchy',
     flag: wiki('Flag of Italy (1861–1946).svg'),
+    status: [
+      { to: '1940-01-01', side: 'axis', text: 'Pact of Steel partner of Germany. Declares non-belligerence on 1 September.' }
+    ],
+    events: [
+      { date: '1938-09-30', text: 'Mussolini helps broker the Munich Agreement' },
+      { date: '1939-04-07', text: 'Italy invades Albania' },
+      { date: '1939-05-22', text: 'Pact of Steel signed with Germany' },
+      { date: '1939-09-01', text: 'Italy declares non-belligerence' }
+    ],
     leaders: [
       { name: 'Victor Emmanuel III', role: 'King', from: '1900-07-29', to: '1946-05-09', image: wiki('Vittorio Emanuele III (c. 1924-1934).jpg') },
       { name: 'Benito Mussolini', role: 'Prime Minister (Duce)', from: '1922-10-31', to: '1943-07-25', image: wiki('Mussolini mezzobusto.jpg') },
@@ -172,6 +259,16 @@ const COUNTRIES = [
     coords: '40.41650, -3.70256',
     government: 'Francoist dictatorship (one-party Nationalist state; Civil War ended 1 April 1939)',
     flag: wiki('Flag of Spain (1938–1945).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, but close to the Axis (Anti-Comintern Pact, March 1939).' }
+    ],
+    events: [
+      { date: '1939-03-27', text: 'Spain joins the Anti-Comintern Pact' },
+      { date: '1939-03-28', text: 'Nationalist troops enter Madrid' },
+      { date: '1939-04-01', text: 'Franco announces the end of the Civil War' },
+      { date: '1939-05-08', text: 'Spain leaves the League of Nations' },
+      { date: '1939-08-09', text: 'Beigbeder becomes Foreign Minister' }
+    ],
     leaders: [
       { name: 'Francisco Franco', role: 'Caudillo, Head of State and Prime Minister', from: '1936-10-01', to: '1975-11-20', image: wiki('Francisco Franco 1930 (cropped).jpg') },
       { name: 'Juan Beigbeder', role: 'Minister of Foreign Affairs', from: '1939-08-09', to: '1940-10-16', image: '' }
@@ -185,6 +282,12 @@ const COUNTRIES = [
     coords: '38.72225, -9.13934',
     government: 'Authoritarian one-party corporatist regime (Estado Novo)',
     flag: wiki('Flag of Portugal.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. The old alliance with Britain (1386) remains in force.' }
+    ],
+    events: [
+      { date: '1939-03-17', text: 'Iberian Pact of friendship and non-aggression signed with Spain' }
+    ],
     leaders: [
       { name: 'Óscar Carmona', role: 'President', from: '1926-11-29', to: '1951-04-18', image: '' },
       { name: 'António de Oliveira Salazar', role: 'President of the Council of Ministers (Prime Minister)', from: '1932-07-05', to: '1968-09-27', image: wiki('Antonio Salazar-1.jpg') }
@@ -198,6 +301,14 @@ const COUNTRIES = [
     coords: '53.34981, -6.26031',
     government: 'Parliamentary democracy (Éire, 1937 Constitution), neutral',
     flag: wiki('Flag of Ireland.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Stays out of European conflicts.' }
+    ],
+    events: [
+      { date: '1939-01-16', text: 'IRA begins its S-Plan bombing campaign in Britain' },
+      { date: '1939-06-14', text: 'Offences Against the State Act passed' },
+      { date: '1939-08-25', text: 'IRA bomb kills five people in Coventry' }
+    ],
     leaders: [
       { name: 'Douglas Hyde', role: 'President', from: '1938-06-25', to: '1945-06-24', image: '' },
       { name: 'Éamon de Valera', role: 'Taoiseach (Prime Minister)', from: '1937-12-29', to: '1948-02-18', image: '' }
@@ -211,6 +322,13 @@ const COUNTRIES = [
     coords: '50.85034, 4.35171',
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of Belgium.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral since 1936. The army is mobilised in late August.' }
+    ],
+    events: [
+      { date: '1939-08-23', text: 'Leopold III broadcasts a peace appeal for the Oslo States' },
+      { date: '1939-08-25', text: 'Belgian army mobilised' }
+    ],
     leaders: [
       { name: 'Leopold III', wiki: 'Leopold III of Belgium', role: 'King of the Belgians', from: '1934-02-23', to: '1951-07-16', image: '' },
       { name: 'Hubert Pierlot', role: 'Prime Minister', from: '1939', to: '1945-02-12', image: '' }
@@ -224,6 +342,13 @@ const COUNTRIES = [
     coords: '52.37403, 4.88969',
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of the Netherlands.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. The army is mobilised on 28 August 1939.' }
+    ],
+    events: [
+      { date: '1939-08-23', text: 'Wilhelmina and Leopold III offer to mediate between the powers' },
+      { date: '1939-08-28', text: 'Dutch army mobilised' }
+    ],
     leaders: [
       { name: 'Wilhelmina', wiki: 'Wilhelmina of the Netherlands', role: 'Queen', from: '1890-11-23', to: '1948-09-04', image: '' },
       { name: 'Dirk Jan de Geer', role: 'Prime Minister', from: '1939-08-10', to: '1940-09-03', image: '' }
@@ -237,6 +362,9 @@ const COUNTRIES = [
     coords: '49.61167, 6.13000',
     government: 'Constitutional monarchy (Grand Duchy), parliamentary democracy',
     flag: wiki('Flag of Luxembourg.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Permanently neutral since 1867.' }
+    ],
     leaders: [
       { name: 'Charlotte', wiki: 'Charlotte, Grand Duchess of Luxembourg', role: 'Grand Duchess', from: '1919-11-15', to: '1964-11-12', image: '' },
       { name: 'Pierre Dupong', role: 'Prime Minister', from: '1937-11-06', to: '1953-12-23', image: '' }
@@ -250,6 +378,12 @@ const COUNTRIES = [
     coords: '55.67594, 12.56553',
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of Denmark.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Non-aggression pact with Germany (31 May 1939).' }
+    ],
+    events: [
+      { date: '1939-05-31', text: 'Non-aggression pact signed with Germany' }
+    ],
     leaders: [
       { name: 'Christian X', wiki: 'Christian X of Denmark', role: 'King', from: '1912-05-14', to: '1947-04-20', image: '' },
       { name: 'Thorvald Stauning', role: 'Prime Minister', from: '1929-04-30', to: '1942-05-03', image: '' }
@@ -263,6 +397,9 @@ const COUNTRIES = [
     coords: '59.91273, 10.74609',
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of Norway.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, as in the First World War.' }
+    ],
     leaders: [
       { name: 'Haakon VII', role: 'King', from: '1905-11-18', to: '1957-09-21', image: '' },
       { name: 'Johan Nygaardsvold', role: 'Prime Minister', from: '1935-03-20', to: '1945-06-25', image: '' }
@@ -276,6 +413,9 @@ const COUNTRIES = [
     coords: '59.32932, 18.06858',
     government: 'Constitutional monarchy, parliamentary democracy, neutral',
     flag: wiki('Flag of Sweden.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral and non-aligned.' }
+    ],
     leaders: [
       { name: 'Gustaf V', role: 'King', from: '1907-12-08', to: '1950-10-29', image: '' },
       { name: 'Per Albin Hansson', role: 'Prime Minister', from: '1936-06-19', to: '1946-10-06', image: '' }
@@ -289,6 +429,9 @@ const COUNTRIES = [
     coords: '60.16952, 24.93545',
     government: 'Parliamentary republic with a strong president',
     flag: wiki('Flag of Finland.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, following the Nordic neutrality policy.' }
+    ],
     leaders: [
       { name: 'Kyösti Kallio', role: 'President', from: '1937-03-01', to: '1940-12-19', image: '' },
       { name: 'Aimo Cajander', role: 'Prime Minister', from: '1937-10-12', to: '1939-12-01', image: '' },
@@ -303,6 +446,9 @@ const COUNTRIES = [
     coords: '64.13548, -21.89541',
     government: 'Kingdom of Iceland: constitutional monarchy in personal union with Denmark',
     flag: wiki('Flag of Iceland.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Declared perpetual neutrality in 1918.' }
+    ],
     leaders: [
       { name: 'Christian X', wiki: 'Christian X of Denmark', role: 'King of Iceland', from: '1918-12-01', to: '1944-06-17', image: '' },
       { name: 'Hermann Jónasson', role: 'Prime Minister', from: '1934-07-28', to: '1942-11-16', image: '' }
@@ -316,6 +462,12 @@ const COUNTRIES = [
     coords: '59.43696, 24.75357',
     government: 'Authoritarian presidential republic (the “Era of Silence”)',
     flag: wiki('Flag of Estonia.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Non-aggression pact with Germany (7 June 1939).' }
+    ],
+    events: [
+      { date: '1939-06-07', text: 'Non-aggression pact signed with Germany' }
+    ],
     leaders: [
       { name: 'Konstantin Päts', role: 'President', from: '1933', to: '1940-07-21', image: '' },
       { name: 'Kaarel Eenpalu', role: 'Prime Minister', from: '1938-10-12', to: '1939-10-12', image: '' },
@@ -330,6 +482,12 @@ const COUNTRIES = [
     coords: '56.94600, 24.10589',
     government: 'Authoritarian one-man regime (Ulmanis, since the 1934 coup)',
     flag: wiki('Flag of Latvia.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Non-aggression pact with Germany (7 June 1939).' }
+    ],
+    events: [
+      { date: '1939-06-07', text: 'Non-aggression pact signed with Germany' }
+    ],
     leaders: [
       { name: 'Kārlis Ulmanis', role: 'President and Prime Minister', from: '1934-03-17', to: '1940-06-20', image: '' }
     ]
@@ -342,6 +500,13 @@ const COUNTRIES = [
     coords: '54.89870, 23.90360',
     government: 'Authoritarian one-party regime (Nationalist Union); Kaunas is the provisional capital',
     flag: wiki('Flag of Lithuania (1918–1940).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. Lost the Memel Territory to Germany in March 1939.' }
+    ],
+    events: [
+      { date: '1939-03-22', text: 'Memel Territory ceded to Germany' },
+      { date: '1939-03-23', text: 'German troops enter Memel' }
+    ],
     leaders: [
       { name: 'Antanas Smetona', role: 'President', from: '1926-12-19', to: '1940-06-15', image: '' },
       { name: 'Jonas Černius', role: 'Prime Minister', from: '1939-03-28', to: '1939-11-21', image: '' },
@@ -356,6 +521,13 @@ const COUNTRIES = [
     coords: '46.94809, 7.44744',
     government: 'Federal directorial republic (Federal Council), neutral',
     flag: wiki('Flag of Switzerland.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Armed neutrality.' }
+    ],
+    events: [
+      { date: '1939-05-06', text: 'National Exhibition opens in Zurich' },
+      { date: '1939-08-30', text: 'Henri Guisan elected General of the army' }
+    ],
     leaders: [
       { name: 'Philipp Etter', role: 'President of the Swiss Confederation (Federal Council)', from: '1939-01-01', to: '1940-01-01', image: '' }
     ]
@@ -368,6 +540,9 @@ const COUNTRIES = [
     coords: '47.14151, 9.52154',
     government: 'Constitutional monarchy (principality)',
     flag: wiki('Flag of Liechtenstein.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral.' }
+    ],
     leaders: [
       { name: 'Franz Joseph II', wiki: 'Franz Joseph II, Prince of Liechtenstein', role: 'Prince', from: '1938-07-25', to: '1989-11-13', image: '' },
       { name: 'Josef Hoop', role: 'Head of Government', from: '1928-09-03', to: '1945-09-03', image: '' }
@@ -381,6 +556,9 @@ const COUNTRIES = [
     coords: '43.73841, 7.42461',
     government: 'Hereditary principality (monarchy)',
     flag: wiki('Flag of Monaco.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, under French protection.' }
+    ],
     leaders: [
       { name: 'Louis II', wiki: 'Louis II, Prince of Monaco', role: 'Sovereign Prince', from: '1922-06-02', to: '1949-05-09', image: '' },
       { name: 'Émile Roblot', wiki: false, role: 'Minister of State', from: '1937', to: '1944', image: '' }
@@ -394,6 +572,9 @@ const COUNTRIES = [
     coords: '42.50631, 1.52180',
     government: 'Parliamentary co-principality (two co-princes)',
     flag: wiki('Flag of Andorra.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral.' }
+    ],
     leaders: [
       { name: 'Albert Lebrun', role: 'French Co-Prince (President of France)', from: '1932-05-10', to: '1940-07-11', image: wiki('Albert Lebrun 1932 (2).jpg') },
       { name: 'Justí Guitart i Vilardebó', role: 'Episcopal Co-Prince (Bishop of Urgell)', from: '1920', to: '1940', image: '' }
@@ -407,6 +588,9 @@ const COUNTRIES = [
     coords: '43.93667, 12.44639',
     government: 'Republic led by two Captains Regent (Fascist Party in power)',
     flag: wiki('Flag of San Marino.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, under Fascist rule.' }
+    ],
     leaders: [
       { name: 'Pompeo Righi', wiki: false, role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' },
       { name: 'Marino Morri', wiki: false, role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' }
@@ -420,6 +604,14 @@ const COUNTRIES = [
     coords: '41.90217, 12.45337',
     government: 'Absolute elective monarchy (Holy See)',
     flag: wiki('Flag of the Vatican City.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral (Lateran Treaty, 1929).' }
+    ],
+    events: [
+      { date: '1939-02-10', text: 'Pope Pius XI dies' },
+      { date: '1939-03-02', text: 'Pius XII elected Pope' },
+      { date: '1939-08-24', text: 'Pius XII broadcasts an appeal for peace' }
+    ],
     leaders: [
       { name: 'Pius XII', role: 'Pope', from: '1939-03-02', to: '1958-10-09', image: '' },
       { name: 'Luigi Maglione', role: 'Cardinal Secretary of State', from: '1939-03-10', to: '1944-08-22', image: '' }
@@ -433,6 +625,15 @@ const COUNTRIES = [
     coords: '47.49801, 19.03991',
     government: 'Regency (kingdom without a king), authoritarian parliamentary system',
     flag: wiki('Flag of Hungary.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral, but leaning towards Germany (Anti-Comintern Pact, 1939).' }
+    ],
+    events: [
+      { date: '1938-11-02', text: 'First Vienna Award returns southern Slovakia to Hungary' },
+      { date: '1939-02-24', text: 'Hungary joins the Anti-Comintern Pact' },
+      { date: '1939-03-15', text: 'Hungary occupies Carpatho-Ukraine' },
+      { date: '1939-03-23', text: 'Slovak–Hungarian War begins' }
+    ],
     leaders: [
       { name: 'Miklós Horthy', role: 'Regent', from: '1920-03-01', to: '1944-10-16', image: '' },
       { name: 'Pál Teleki', role: 'Prime Minister', from: '1939-02-16', to: '1941-04-03', image: '' }
@@ -446,6 +647,14 @@ const COUNTRIES = [
     coords: '44.43225, 26.10626',
     government: 'Royal dictatorship (since 1938)',
     flag: wiki('Flag of Romania.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. British and French guarantee since April 1939.' }
+    ],
+    events: [
+      { date: '1938-11-30', text: 'Iron Guard leader Codreanu killed in custody' },
+      { date: '1939-03-23', text: 'Oil-for-arms economic treaty signed with Germany' },
+      { date: '1939-04-13', text: 'British and French guarantee of Romania' }
+    ],
     leaders: [
       { name: 'Carol II', wiki: 'Carol II of Romania', role: 'King', from: '1930-06-08', to: '1940-09-06', image: '' },
       { name: 'Armand Călinescu', role: 'Prime Minister', from: '1939-03-07', to: '1939-09-21', image: '' }
@@ -459,6 +668,9 @@ const COUNTRIES = [
     coords: '42.69751, 23.32415',
     government: 'Authoritarian monarchy (royal dictatorship, since 1935)',
     flag: wiki('Flag of Bulgaria.svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral.' }
+    ],
     leaders: [
       { name: 'Boris III', wiki: 'Boris III of Bulgaria', role: 'Tsar', from: '1918-10-03', to: '1943-08-28', image: '' },
       { name: 'Georgi Kyoseivanov', role: 'Prime Minister', from: '1935-11-22', to: '1940-02-15', image: '' }
@@ -472,6 +684,13 @@ const COUNTRIES = [
     coords: '44.80401, 20.46513',
     government: 'Constitutional monarchy under a regency',
     flag: wiki('Flag of Yugoslavia (1918–1943).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral.' }
+    ],
+    events: [
+      { date: '1939-02-05', text: 'Cvetković becomes Prime Minister after Stojadinović’s dismissal' },
+      { date: '1939-08-26', text: 'Cvetković–Maček Agreement creates the Banovina of Croatia' }
+    ],
     leaders: [
       { name: 'Peter II', wiki: 'Peter II of Yugoslavia', role: 'King (a minor)', from: '1934-10-09', to: '1945-11-29', image: '' },
       { name: 'Prince Paul', wiki: 'Prince Paul of Yugoslavia', role: 'Regent', from: '1934-10-09', to: '1941-03-27', image: '' },
@@ -486,6 +705,12 @@ const COUNTRIES = [
     coords: '37.98381, 23.72754',
     government: 'Authoritarian monarchy (4th of August Regime)',
     flag: wiki('Flag of Greece (1822-1978).svg'),
+    status: [
+      { to: '1940-01-01', side: 'neutral', text: 'Neutral. British and French guarantee since April 1939.' }
+    ],
+    events: [
+      { date: '1939-04-13', text: 'British and French guarantee of Greek independence' }
+    ],
     leaders: [
       { name: 'George II', wiki: 'George II of Greece', role: 'King of the Hellenes', from: '1935-11-25', to: '1947-04-01', image: '' },
       { name: 'Ioannis Metaxas', role: 'Prime Minister (dictator)', from: '1936-04-13', to: '1941-01-29', image: '' }
@@ -499,6 +724,14 @@ const COUNTRIES = [
     coords: '41.32754, 19.81889',
     government: 'Italian protectorate: kingdom in personal union with Italy (since 7–16 April 1939)',
     flag: wiki('Flag of Albania (1939–1943).svg'),
+    status: [
+      { to: '1940-01-01', side: 'occupied', text: 'Occupied by Italy since April 1939, as a protectorate in union with the Italian crown.' }
+    ],
+    events: [
+      { date: '1939-04-07', text: 'Italy invades Albania' },
+      { date: '1939-04-12', text: 'Assembly offers the Albanian crown to Victor Emmanuel III' },
+      { date: '1939-04-16', text: 'Victor Emmanuel III accepts the crown' }
+    ],
     leaders: [
       { name: 'Victor Emmanuel III', role: 'King of the Albanians', from: '1939-04-16', to: '1943-09-08', image: wiki('Vittorio Emanuele III (c. 1924-1934).jpg') },
       { name: 'Francesco Jacomoni', wiki: 'Francesco Jacomoni di San Savino', role: 'Lieutenant-General (Italian viceroy)', from: '1939-04-16', to: '1943', image: '' },
@@ -513,6 +746,14 @@ const COUNTRIES = [
     coords: '50.08804, 14.42076',
     government: 'German protectorate with nominal autonomy (since 15 March 1939)',
     flag: wiki('Flag of the Protectorate of Bohemia and Moravia.svg'),
+    status: [
+      { to: '1940-01-01', side: 'occupied', text: 'Occupied by Germany since 15 March 1939.' }
+    ],
+    events: [
+      { date: '1939-03-15', text: 'German troops occupy Prague' },
+      { date: '1939-03-16', text: 'Hitler proclaims the Protectorate from Prague Castle' },
+      { date: '1939-03-18', text: 'Neurath appointed Reich Protector' }
+    ],
     leaders: [
       { name: 'Emil Hácha', role: 'State President', from: '1938-11-30', to: '1945-05-09', image: '' },
       { name: 'Konstantin von Neurath', role: 'Reich Protector (German governor)', from: '1939-03-18', to: '1943-08-24', image: '' },
@@ -527,6 +768,14 @@ const COUNTRIES = [
     coords: '48.14816, 17.10674',
     government: 'One-party clerical-nationalist client state of Germany (independent since 14 March 1939)',
     flag: wiki('Flag of Slovakia (1939–1945).svg'),
+    status: [
+      { to: '1940-01-01', side: 'axis', text: 'Client state of Germany. Its troops join the invasion of Poland on 1 September.' }
+    ],
+    events: [
+      { date: '1939-03-14', text: 'Slovak Diet declares independence' },
+      { date: '1939-03-23', text: 'Treaty of protection signed with Germany' },
+      { date: '1939-09-01', text: 'Slovak troops join the invasion of Poland' }
+    ],
     leaders: [
       { name: 'Jozef Tiso', role: 'Prime Minister', from: '1939-03-14', to: '1939-10-26', image: '' },
       { name: 'Jozef Tiso', role: 'President', from: '1939-10-26', to: '1945-04-04', image: '' },
@@ -572,6 +821,32 @@ function governmentOn(c, date) {
   return hit ? hit.text : '';
 }
 const leadersOn = (c, date) => (c.leaders || []).filter(l => l && l.name && inEffect(l, date));
+
+// ---- Side in the war, and events shortly before the map date ----
+const SIDE_LABEL = { axis: 'Axis', allies: 'Allies', neutral: 'Neutral', occupied: 'Occupied' };
+const EVENT_MAX = 5;
+
+function statusOn(c, date) {
+  const list = Array.isArray(c.status) ? c.status : (c.status ? [c.status] : []);
+  return list.find(st => inEffect(st, date)) || null;
+}
+
+// events from the 12 months up to and including the map date, newest first
+function eventsAround(c, date) {
+  if (!date) return [];
+  const start = (Number(date.slice(0, 4)) - 1) + date.slice(4);
+  return (c.events || [])
+    .filter(e => e && e.text && e.date && isoDay(e.date) <= date && isoDay(e.date) >= start)
+    .sort((a, b) => isoDay(b.date).localeCompare(isoDay(a.date)))
+    .slice(0, EVENT_MAX);
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+                     'August', 'September', 'October', 'November', 'December'];
+function eventDate(d) {
+  const [y, m, day] = isoDay(d).split('-').map(Number);
+  return (day ? day + ' ' : '') + MONTH_NAMES[m - 1] + ' ' + y;
+}
 
 // '1933\u20131945', 'since 1926' ... (or the leader's own `years` text)
 function leaderYears(l) {
@@ -763,6 +1038,19 @@ function createCountryModal() {
       g.textContent = gov;
       names.append(g);
     }
+    const st = statusOn(c, date);
+    if (st) {
+      const row = mk('div', 'cstatus');
+      const pill = mk('span', 'cstatus-pill ' + (st.side || ''));
+      pill.textContent = SIDE_LABEL[st.side] || st.side || '';
+      row.append(pill);
+      if (st.text) {
+        const t = mk('div', 'cstatus-text');
+        t.textContent = st.text;
+        row.append(t);
+      }
+      names.append(row);
+    }
     if (c.capital) {
       const cap = mk('div', 'ccap');
       cap.textContent = 'Capital: ' + c.capital;
@@ -780,6 +1068,25 @@ function createCountryModal() {
       body.append(when);
     }
 
+    // "Key events" list, shown below the leaders
+    const addEvents = () => {
+      const evs = eventsAround(c, date);
+      if (!evs.length) return;
+      const t = mk('div', 'csec');
+      t.textContent = 'Key events';
+      const list = mk('div', 'cevents');
+      evs.forEach(e => {
+        const row = mk('div', 'cevent');
+        const d = mk('div', 'cevent-date');
+        d.textContent = eventDate(e.date);
+        const x = mk('div', 'cevent-text');
+        x.textContent = e.text;
+        row.append(d, x);
+        list.append(row);
+      });
+      body.append(t, list);
+    };
+
     const leaders = leadersOn(c, date);
     const title = mk('div', 'csec');
     title.textContent = leaders.length === 1 ? 'Leader' : 'Leaders';
@@ -788,6 +1095,7 @@ function createCountryModal() {
       const none = mk('div', 'cnone');
       none.textContent = 'No leaders listed for this date.';
       body.append(none);
+      addEvents();
       return;
     }
     const grid = mk('div', 'cleaders');
@@ -812,6 +1120,7 @@ function createCountryModal() {
       grid.append(card);
     });
     body.append(grid);
+    addEvents();
   };
 
   // The year buttons of Historical Borders were pressed
@@ -891,6 +1200,24 @@ function initCountries(map, panelRoot, goTo) {
   search.setAttribute('aria-label', 'Search countries');
   tools.append(search);
 
+  // Group by: Side (folders Allies / Axis / Neutral / Occupied) or None
+  const SIDE_ORDER = ['allies', 'axis', 'neutral', 'occupied'];
+  const folderClosed = new Set();               // folders the user has closed
+  let groupMode = 'side';
+  const groupWrap = mk('label', 'vtool');
+  const groupSpan = mk('span');
+  groupSpan.textContent = 'Group by';
+  const groupSel = mk('select');
+  [['side', 'Side in the war'], ['none', 'None']].forEach(([v, t]) => {
+    const o = mk('option');
+    o.value = v;
+    o.textContent = t;
+    groupSel.append(o);
+  });
+  groupSel.addEventListener('change', () => { groupMode = groupSel.value; render(); });
+  groupWrap.append(groupSpan, groupSel);
+  tools.append(groupWrap);
+
   const list = mk('div', 'vpanel-list clist');
 
   const rowEl = it => {
@@ -923,7 +1250,37 @@ function initCountries(map, panelRoot, goTo) {
     return row;
   };
 
-  const render = () => {
+  // side on the date of the selected map year ('' = no status listed)
+  const sideOf = c => {
+    const st = statusOn(c, mapDate());
+    return st && SIDE_ORDER.includes(st.side) ? st.side : '';
+  };
+
+  const folderEl = (key, label, rows, forceOpen) => {
+    const open = forceOpen || !folderClosed.has(key);
+    const f = mk('div', 'cfolder ' + (key || 'none') + (open ? '' : ' closed'));
+    const h = mk('button', 'cfolder-head');
+    h.type = 'button';
+    h.setAttribute('aria-expanded', String(open));
+    const chev = mk('span', 'cfolder-chev');
+    chev.textContent = '\u25BE';
+    const nm = mk('span', 'cfolder-name');
+    nm.textContent = label;
+    const n = mk('span', 'vgroup-count');
+    n.textContent = String(rows.length);
+    h.append(chev, nm, n);
+    const body = mk('div', 'cfolder-body');
+    rows.forEach(it => body.append(rowEl(it)));
+    h.addEventListener('click', () => {
+      const closed = f.classList.toggle('closed');
+      h.setAttribute('aria-expanded', String(!closed));
+      if (closed) folderClosed.add(key); else folderClosed.delete(key);
+    });
+    f.append(h, body);
+    return f;
+  };
+
+  const render = keepScroll => {
     const q = search.value.trim().toLowerCase();
     const shown = items.filter(it =>
       !q || [it.c.name, it.c.native, it.c.capital, it.c.government].join(' ').toLowerCase().includes(q));
@@ -932,13 +1289,21 @@ function initCountries(map, panelRoot, goTo) {
       const empty = mk('div', 'vpanel-empty');
       empty.textContent = items.length ? 'No countries match.' : 'No countries yet. Add them in js/countries.js.';
       frag.append(empty);
-    } else {
+    } else if (groupMode === 'none') {
       shown.forEach(it => frag.append(rowEl(it)));
+    } else {
+      const buckets = new Map(SIDE_ORDER.concat(['']).map(k => [k, []]));
+      shown.forEach(it => buckets.get(sideOf(it.c)).push(it));
+      buckets.forEach((rows, k) => {
+        if (!rows.length) return;                       // empty folders are not shown
+        frag.append(folderEl(k, SIDE_LABEL[k] || 'No side listed', rows, !!q));
+      });
     }
     list.replaceChildren(frag);
-    list.scrollTop = 0;
+    if (!keepScroll) list.scrollTop = 0;
   };
-  search.addEventListener('input', render);
+  search.addEventListener('input', () => render());
+  document.addEventListener('borderyearchange', () => render(true));   // folders follow the map year
   render();
   panelRoot.append(tools, list);
 

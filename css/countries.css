@@ -32,7 +32,7 @@
 .vpanel:not(.mode-countries) .countries-count { display: none; }
 .vpanel.collapsed .ctools { display: none; }
 
-.ctools { display: flex; padding: 0 10px 10px; }
+.ctools { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; }
 
 /* ---------- Country list (left panel) ---------- */
 .crow {
@@ -184,3 +184,36 @@
 @media (max-width: 480px) {
   .chead { flex-direction: column; align-items: flex-start; padding-right: 4px; }
 }
+
+/* ---------- Side folders in the country list (Allies / Axis / Neutral / Occupied) ---------- */
+.cfolder-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: calc(100% + 12px);
+  margin: 4px -6px 0;
+  padding: 7px 12px 5px;
+  border: 0;
+  border-bottom: 1px solid #2a2a2a;
+  background: #1c1c1c;
+  color: #c9a24b;
+  font: 11px/1.2 system-ui, sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.cfolder-head:hover { background: #232323; }
+.cfolder-head:focus-visible { outline: 2px solid #6aa9ff; outline-offset: -2px; }
+.cfolder-name { flex: 1; min-width: 0; }
+.cfolder-chev { display: inline-block; transition: transform .15s ease; }
+.cfolder.closed .cfolder-chev { transform: rotate(-90deg); }
+.cfolder.closed .cfolder-body { display: none; }
+.cfolder.allies   .cfolder-head { color: #8ebcff; }
+.cfolder.axis     .cfolder-head { color: #f0877b; }
+.cfolder.occupied .cfolder-head { color: #c6a5ec; }
+.cfolder.neutral  .cfolder-head { color: #b5b5bd; }
