@@ -16,6 +16,10 @@
 //                  with the date:  [ { from: '1933-03-23', text: '...' }, ... ]
 //    flag        - the flag image (see "Images" below)
 //    leaders     - list of { name, role, from, to, image }
+//                  Leaders WITHOUT an image get their photo automatically from
+//                  their English Wikipedia article (found by the leader's name).
+//                  If the name finds the wrong page, add  wiki: 'Exact article title'
+//                  to that leader; add  wiki: false  to turn the automatic photo off.
 //
 //  The panel follows the year chosen with the Historical Borders year buttons
 //  and shows what was true on that map's date (1 January, except 1939 =
@@ -208,7 +212,7 @@ const COUNTRIES = [
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of Belgium.svg'),
     leaders: [
-      { name: 'Leopold III', role: 'King of the Belgians', from: '1934-02-23', to: '1951-07-16', image: '' },
+      { name: 'Leopold III', wiki: 'Leopold III of Belgium', role: 'King of the Belgians', from: '1934-02-23', to: '1951-07-16', image: '' },
       { name: 'Hubert Pierlot', role: 'Prime Minister', from: '1939', to: '1945-02-12', image: '' }
     ]
   },
@@ -221,7 +225,7 @@ const COUNTRIES = [
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of the Netherlands.svg'),
     leaders: [
-      { name: 'Wilhelmina', role: 'Queen', from: '1890-11-23', to: '1948-09-04', image: '' },
+      { name: 'Wilhelmina', wiki: 'Wilhelmina of the Netherlands', role: 'Queen', from: '1890-11-23', to: '1948-09-04', image: '' },
       { name: 'Dirk Jan de Geer', role: 'Prime Minister', from: '1939-08-10', to: '1940-09-03', image: '' }
     ]
   },
@@ -234,7 +238,7 @@ const COUNTRIES = [
     government: 'Constitutional monarchy (Grand Duchy), parliamentary democracy',
     flag: wiki('Flag of Luxembourg.svg'),
     leaders: [
-      { name: 'Charlotte', role: 'Grand Duchess', from: '1919-11-15', to: '1964-11-12', image: '' },
+      { name: 'Charlotte', wiki: 'Charlotte, Grand Duchess of Luxembourg', role: 'Grand Duchess', from: '1919-11-15', to: '1964-11-12', image: '' },
       { name: 'Pierre Dupong', role: 'Prime Minister', from: '1937-11-06', to: '1953-12-23', image: '' }
     ]
   },
@@ -247,7 +251,7 @@ const COUNTRIES = [
     government: 'Constitutional monarchy, parliamentary democracy',
     flag: wiki('Flag of Denmark.svg'),
     leaders: [
-      { name: 'Christian X', role: 'King', from: '1912-05-14', to: '1947-04-20', image: '' },
+      { name: 'Christian X', wiki: 'Christian X of Denmark', role: 'King', from: '1912-05-14', to: '1947-04-20', image: '' },
       { name: 'Thorvald Stauning', role: 'Prime Minister', from: '1929-04-30', to: '1942-05-03', image: '' }
     ]
   },
@@ -300,7 +304,7 @@ const COUNTRIES = [
     government: 'Kingdom of Iceland: constitutional monarchy in personal union with Denmark',
     flag: wiki('Flag of Iceland.svg'),
     leaders: [
-      { name: 'Christian X', role: 'King of Iceland', from: '1918-12-01', to: '1944-06-17', image: '' },
+      { name: 'Christian X', wiki: 'Christian X of Denmark', role: 'King of Iceland', from: '1918-12-01', to: '1944-06-17', image: '' },
       { name: 'Hermann Jónasson', role: 'Prime Minister', from: '1934-07-28', to: '1942-11-16', image: '' }
     ]
   },
@@ -365,7 +369,7 @@ const COUNTRIES = [
     government: 'Constitutional monarchy (principality)',
     flag: wiki('Flag of Liechtenstein.svg'),
     leaders: [
-      { name: 'Franz Joseph II', role: 'Prince', from: '1938-07-25', to: '1989-11-13', image: '' },
+      { name: 'Franz Joseph II', wiki: 'Franz Joseph II, Prince of Liechtenstein', role: 'Prince', from: '1938-07-25', to: '1989-11-13', image: '' },
       { name: 'Josef Hoop', role: 'Head of Government', from: '1928-09-03', to: '1945-09-03', image: '' }
     ]
   },
@@ -378,8 +382,8 @@ const COUNTRIES = [
     government: 'Hereditary principality (monarchy)',
     flag: wiki('Flag of Monaco.svg'),
     leaders: [
-      { name: 'Louis II', role: 'Sovereign Prince', from: '1922-06-02', to: '1949-05-09', image: '' },
-      { name: 'Émile Roblot', role: 'Minister of State', from: '1937', to: '1944', image: '' }
+      { name: 'Louis II', wiki: 'Louis II, Prince of Monaco', role: 'Sovereign Prince', from: '1922-06-02', to: '1949-05-09', image: '' },
+      { name: 'Émile Roblot', wiki: false, role: 'Minister of State', from: '1937', to: '1944', image: '' }
     ]
   },
   {
@@ -404,8 +408,8 @@ const COUNTRIES = [
     government: 'Republic led by two Captains Regent (Fascist Party in power)',
     flag: wiki('Flag of San Marino.svg'),
     leaders: [
-      { name: 'Pompeo Righi', role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' },
-      { name: 'Marino Morri', role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' }
+      { name: 'Pompeo Righi', wiki: false, role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' },
+      { name: 'Marino Morri', wiki: false, role: 'Captain Regent', from: '1939-04-01', to: '1939-10-01', image: '' }
     ]
   },
   {
@@ -443,7 +447,7 @@ const COUNTRIES = [
     government: 'Royal dictatorship (since 1938)',
     flag: wiki('Flag of Romania.svg'),
     leaders: [
-      { name: 'Carol II', role: 'King', from: '1930-06-08', to: '1940-09-06', image: '' },
+      { name: 'Carol II', wiki: 'Carol II of Romania', role: 'King', from: '1930-06-08', to: '1940-09-06', image: '' },
       { name: 'Armand Călinescu', role: 'Prime Minister', from: '1939-03-07', to: '1939-09-21', image: '' }
     ]
   },
@@ -456,7 +460,7 @@ const COUNTRIES = [
     government: 'Authoritarian monarchy (royal dictatorship, since 1935)',
     flag: wiki('Flag of Bulgaria.svg'),
     leaders: [
-      { name: 'Boris III', role: 'Tsar', from: '1918-10-03', to: '1943-08-28', image: '' },
+      { name: 'Boris III', wiki: 'Boris III of Bulgaria', role: 'Tsar', from: '1918-10-03', to: '1943-08-28', image: '' },
       { name: 'Georgi Kyoseivanov', role: 'Prime Minister', from: '1935-11-22', to: '1940-02-15', image: '' }
     ]
   },
@@ -469,8 +473,8 @@ const COUNTRIES = [
     government: 'Constitutional monarchy under a regency',
     flag: wiki('Flag of Yugoslavia (1918–1943).svg'),
     leaders: [
-      { name: 'Peter II', role: 'King (a minor)', from: '1934-10-09', to: '1945-11-29', image: '' },
-      { name: 'Prince Paul', role: 'Regent', from: '1934-10-09', to: '1941-03-27', image: '' },
+      { name: 'Peter II', wiki: 'Peter II of Yugoslavia', role: 'King (a minor)', from: '1934-10-09', to: '1945-11-29', image: '' },
+      { name: 'Prince Paul', wiki: 'Prince Paul of Yugoslavia', role: 'Regent', from: '1934-10-09', to: '1941-03-27', image: '' },
       { name: 'Dragiša Cvetković', role: 'Prime Minister', from: '1939-02-05', to: '1941-03-27', image: '' }
     ]
   },
@@ -483,7 +487,7 @@ const COUNTRIES = [
     government: 'Authoritarian monarchy (4th of August Regime)',
     flag: wiki('Flag of Greece (1822-1978).svg'),
     leaders: [
-      { name: 'George II', role: 'King of the Hellenes', from: '1935-11-25', to: '1947-04-01', image: '' },
+      { name: 'George II', wiki: 'George II of Greece', role: 'King of the Hellenes', from: '1935-11-25', to: '1947-04-01', image: '' },
       { name: 'Ioannis Metaxas', role: 'Prime Minister (dictator)', from: '1936-04-13', to: '1941-01-29', image: '' }
     ]
   },
@@ -497,7 +501,7 @@ const COUNTRIES = [
     flag: wiki('Flag of Albania (1939–1943).svg'),
     leaders: [
       { name: 'Victor Emmanuel III', role: 'King of the Albanians', from: '1939-04-16', to: '1943-09-08', image: wiki('Vittorio Emanuele III (c. 1924-1934).jpg') },
-      { name: 'Francesco Jacomoni', role: 'Lieutenant-General (Italian viceroy)', from: '1939-04-16', to: '1943', image: '' },
+      { name: 'Francesco Jacomoni', wiki: 'Francesco Jacomoni di San Savino', role: 'Lieutenant-General (Italian viceroy)', from: '1939-04-16', to: '1943', image: '' },
       { name: 'Shefqet Vërlaci', role: 'Prime Minister', from: '1939-04-12', to: '1941', image: '' }
     ]
   },
@@ -593,7 +597,21 @@ function flagImg(c, cls) {
   return img;
 }
 
-// Portrait of a leader, or their initials
+// Photo from the leader's Wikipedia article (the picture in its info box), asked once per title
+const wikiPhotoCache = new Map();
+function wikiPhoto(title) {
+  const key = String(title).trim().replace(/ /g, '_');
+  if (!wikiPhotoCache.has(key)) {
+    wikiPhotoCache.set(key,
+      fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(key))
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => (j && j.type !== 'disambiguation' && j.thumbnail && j.thumbnail.source) ? j.thumbnail.source : null)
+        .catch(() => null));
+  }
+  return wikiPhotoCache.get(key);
+}
+
+// Portrait of a leader, or their initials (replaced by the Wikipedia photo if one is found)
 function personImg(l) {
   const placeholder = () => {
     const d = mk('div', 'cleader-img no-img');
@@ -601,7 +619,20 @@ function personImg(l) {
     return d;
   };
   const src = countryImg(l.image);
-  if (!src) return placeholder();
+  if (!src) {
+    const d = placeholder();
+    if (l.wiki !== false && l.name) {
+      wikiPhoto(l.wiki || l.name).then(url => {
+        const safe = countryImg(url);
+        if (!safe) return;
+        const img = mk('img', 'cleader-img');
+        img.alt = l.name || '';
+        img.addEventListener('load', () => { if (d.parentNode) d.replaceWith(img); });
+        img.src = safe;
+      });
+    }
+    return d;
+  }
   const img = mk('img', 'cleader-img');
   img.alt = l.name || '';
   img.addEventListener('error', () => img.replaceWith(placeholder()));

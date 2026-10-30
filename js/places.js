@@ -76,17 +76,17 @@ const PLACES = [
     ]
   },
   {
-    coords: '49.61197, 6.12887',
-    name: 'Luxembourg',
-    videos: [
-      { title: 'Invasion of Luxembourg - Every Hour', url: 'https://www.youtube.com/watch?v=4DDtmYAVPoA', date: '1940-05-10 / 1940-05-10' }
-    ]
-  },
-  {
     coords: '52.37639, 4.89320',
     name: 'Amsterdam',
     videos: [
       { title: 'The invasion of the Netherlands 1940, every hour', url: 'https://www.youtube.com/watch?v=_jIBmUMuadM', date: '1940-05-10 / 1940-05-27' }
+    ]
+  },
+  {
+    coords: '53.90270, 27.56205',
+    name: 'Minsk',
+    videos: [
+      { title: 'World War II, Operation Bagration(East Front in 1944):Every Day/巴格拉季昂行動戰線變化', url: 'https://www.youtube.com/watch?v=holNr59mpDo', date: '1944-06-23 / 1944-08-29' }
     ]
   },
   {
@@ -186,9 +186,15 @@ const PLACES = [
     coords: '60.17177, 24.93551',
     name: 'Helsinki',
     videos: [
-      { title: 'WW2: The Continuation War: Every Day (Remake) [25.06.41 – 19.09.44] [4K]', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' },
       { title: 'WWII - The Winter War/Советско-финляндская война/Talvisota (1939-1940): Every Day', url: 'https://www.youtube.com/watch?v=A94GgeX-FKI', date: '1939-11-30 / 1944-03-13' },
       { title: 'The War of Annihilation - Arctic front / Война на Уничтожение - Битва за Арктику', url: 'https://www.youtube.com/watch?v=rWMKx_xi0oU', date: '1941-06-22 / 1945-09-04' }
+    ]
+  },
+  {
+    coords: '61.78937, 34.36924',
+    name: 'Petrozavodsk',
+    videos: [
+      { title: 'WW2: The Continuation War: Every Day (Remake) [25.06.41 – 19.09.44] [4K]', url: 'https://www.youtube.com/watch?v=0WvPIYi2pVU', author: 'Jumlesss Mapping', date: '1941-06-25 / 1944-09-19' },
     ]
   },
   {

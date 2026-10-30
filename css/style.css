@@ -902,3 +902,11 @@ body.menu-open .crosshair { visibility: hidden; }
 .borders-year:hover { color: #fff; }
 .borders-year.active { background: #2e2e2e; border-color: #c9a24b; color: #fff; }
 .borders-year:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+
+/* MapLibre's own CSS turns every button inside a map control almost transparent on hover
+   (".maplibregl-ctrl button:not(:disabled):hover"). These rules are more specific, so the
+   History / Historical Borders buttons keep their background when the cursor is on them. */
+.history .history-toggle:not(:disabled):hover { background-color: #262626; }
+.history .history-toggle.active:not(:disabled):hover { background-color: #383838; }
+.history .borders-year:not(:disabled):hover { background-color: #121212; }
+.history .borders-year.active:not(:disabled):hover { background-color: #2e2e2e; }

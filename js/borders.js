@@ -130,7 +130,7 @@ class BordersControl {
     GLOW_LAYERS.forEach(g => { if (map.getLayer(g.id)) map.removeLayer(g.id); });
     if (map.getSource('borders')) map.removeSource('borders');
     if (map.getSource('borders-outline')) map.removeSource('borders-outline');
-    if (!this.on) return;
+    if (!this.on) { map.getCanvas().style.cursor = ''; return; }
 
     map.addSource('borders', { type: 'geojson', data: this.cache[this.year] || EMPTY_GEOJSON, generateId: true });
     // Same borders, but simplified harder: used only for the hover outline.
@@ -193,6 +193,7 @@ class BordersControl {
     }
     if (id === this.hoverId) return;
     this.hoverId = id;
+    map.getCanvas().style.cursor = id !== null ? 'pointer' : '';   // hand cursor on a border
     GLOW_LAYERS.forEach(g => {
       if (id !== null) {
         map.setFilter(g.id, ['==', ['id'], id]);
