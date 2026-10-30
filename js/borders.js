@@ -29,6 +29,18 @@ const borderIsoDate = year => BORDER_ISO_DATES[year] || year + '-01-01';
 let selectedBorderYear = BORDER_YEARS[0];
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
+// How close (in screen pixels) the cursor must be to a border to blur it.
+const HOVER_RADIUS = 8;
+
+// When the cursor is near a border, the whole line gets a blurred halo.
+// Width and blur are in pixels at zoom 2, 6 and 10.
+const GLOW_WIDTH = [8, 16, 30];
+const GLOW_BLUR = [6, 12, 22];                    // bigger = softer
+const GLOW_OPACITY = 0.8;                         // 0 = invisible, 1 = full
+// Extra simplification of the outline's shape (higher = smoother, fewer spikes when zoomed out).
+const GLOW_SIMPLIFY = 3;
+const GLOW_LAYERS = [{ id: 'borders-glow-1', width: GLOW_WIDTH, blur: GLOW_BLUR, opacity: GLOW_OPACITY }];
+
 // Outline color: gold on the Dark map, black on the light OSM map.
 // (`current` is the active base map id, defined in map.js)
 const borderColor = () => (typeof current !== 'undefined' && current === 'osm') ? '#000000' : '#c9a24b';
@@ -113,11 +125,33 @@ class BordersControl {
   // (Re)draws the layer; also called after every base map switch.
   apply() {
     const map = this.map;
+    this.hoverId = null;
     if (map.getLayer('borders-line')) map.removeLayer('borders-line');
+    GLOW_LAYERS.forEach(g => { if (map.getLayer(g.id)) map.removeLayer(g.id); });
     if (map.getSource('borders')) map.removeSource('borders');
+    if (map.getSource('borders-outline')) map.removeSource('borders-outline');
     if (!this.on) return;
 
-    map.addSource('borders', { type: 'geojson', data: this.cache[this.year] || EMPTY_GEOJSON });
+    map.addSource('borders', { type: 'geojson', data: this.cache[this.year] || EMPTY_GEOJSON, generateId: true });
+    // Same borders, but simplified harder: used only for the hover outline.
+    map.addSource('borders-outline', { type: 'geojson', data: this.cache[this.year] || EMPTY_GEOJSON, generateId: true, tolerance: GLOW_SIMPLIFY });
+
+    // Soft halo under the outline. Invisible until the cursor is near a border (see hover()).
+    GLOW_LAYERS.forEach(g => map.addLayer({
+      id: g.id,
+      type: 'line',
+      source: 'borders-outline',
+      filter: ['==', ['id'], -1],
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': borderColor(),
+        'line-opacity': 0,
+        'line-opacity-transition': { duration: 0 },
+        'line-width': ['interpolate', ['linear'], ['zoom'], 2, g.width[0], 6, g.width[1], 10, g.width[2]],
+        'line-blur': ['interpolate', ['linear'], ['zoom'], 2, g.blur[0], 6, g.blur[1], 10, g.blur[2]]
+      }
+    }));
+
     map.addLayer({
       id: 'borders-line',
       type: 'line',
@@ -138,6 +172,35 @@ class BordersControl {
     if (map.getLayer('borders-line') && map.getPaintProperty('borders-line', 'line-color') !== color) {
       map.setPaintProperty('borders-line', 'line-color', color);
     }
+    GLOW_LAYERS.forEach(g => {
+      if (map.getLayer(g.id) && map.getPaintProperty(g.id, 'line-color') !== color) {
+        map.setPaintProperty(g.id, 'line-color', color);
+      }
+    });
+  }
+
+  // Cursor near a border -> the whole border line it touches gets a soft halo, instantly.
+  hover(point) {
+    const map = this.map;
+    if (!this.on || !map.getLayer(GLOW_LAYERS[0].id)) return;
+    let id = null;
+    if (point) {
+      const r = HOVER_RADIUS;
+      const hit = map.queryRenderedFeatures(
+        [[point.x - r, point.y - r], [point.x + r, point.y + r]],
+        { layers: ['borders-line'] });
+      if (hit.length && hit[0].id !== undefined) id = hit[0].id;
+    }
+    if (id === this.hoverId) return;
+    this.hoverId = id;
+    GLOW_LAYERS.forEach(g => {
+      if (id !== null) {
+        map.setFilter(g.id, ['==', ['id'], id]);
+        map.setPaintProperty(g.id, 'line-opacity', g.opacity);
+      } else {
+        map.setPaintProperty(g.id, 'line-opacity', 0);
+      }
+    });
   }
 
   // Loads the file for the selected year, with a clear message if something is wrong.
@@ -172,6 +235,8 @@ class BordersControl {
   show(data) {
     const src = this.map.getSource('borders');
     if (src) src.setData(data);
+    const out = this.map.getSource('borders-outline');
+    if (out) out.setData(data);
   }
 
   say(text) {
@@ -196,6 +261,13 @@ function initBorders(map) {
     try { control.apply(); } catch (e) { /* style not ready yet; the next styledata retries */ }
     redrawing = false;
   });
+
+  // Blur the border the cursor is near. Skipped while dragging the map.
+  map.on('mousemove', e => {
+    if (e.originalEvent && e.originalEvent.buttons) { control.hover(null); return; }
+    control.hover(e.point);
+  });
+  map.on('mouseout', () => control.hover(null));
 
   // Tell the CSS how tall the bottom-left stack is (scale, History, Borders and their
   // panels), so the video list on the left stops above it instead of covering it.
