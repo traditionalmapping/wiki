@@ -204,8 +204,8 @@ const PLACES = [
       { title: 'WW2: Operation Barbarossa MAPPED【22.06.41 - 05.12.41】- EVERY DAY',
         url: 'https://www.youtube.com/watch?v=n4uHL6BOhzY',
         author: 'Jumlesss Mapping',
-        date: '1941-06-22 / 1941-12-05',
-        embed: false }, 
+        date: '1941-06-22 / 1941-12-05'
+      }, 
       { title: 'The War of Annihilation - Battle of Moscow / Война на Уничтожение - Битва за Москву', url: 'https://www.youtube.com/watch?v=TRdV-gm7PEc', date: '1941-06-22 / 1943-04-01' }
     ]
   },

@@ -63,6 +63,23 @@ function linkEl(url) {
 // ---- In-page YouTube player (opens when a YouTube thumbnail is clicked) ----
 let playerApi = null;
 
+// Loads YouTube's IFrame Player API once (needed to find out why a video cannot be embedded)
+let ytApiPromise = null;
+function loadYouTubeApi() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise((resolve, reject) => {
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); resolve(); };
+      const sc = document.createElement('script');
+      sc.src = 'https://www.youtube.com/iframe_api';
+      sc.onerror = () => { ytApiPromise = null; reject(new Error('YouTube player script failed to load')); };
+      document.head.append(sc);
+    });
+  }
+  return ytApiPromise;
+}
+
 function createVideoPlayer() {
   const back = mk('div', 'pmodal');
   back.hidden = true;
@@ -93,11 +110,13 @@ function createVideoPlayer() {
   const FADE_MS = 260; // keep in sync with the CSS transition time
   let opener = null;
   let closeTimer = null;
+  let openToken = 0;
 
   const isOpen = () => back.classList.contains('open');
   const hide = () => {
     if (!isOpen()) return;
     back.classList.remove('open');
+    openToken++;
     frame.replaceChildren();                   // removing the iframe stops the video
     clearTimeout(closeTimer);
     closeTimer = setTimeout(() => { back.hidden = true; }, FADE_MS);
@@ -117,13 +136,54 @@ function createVideoPlayer() {
       title.textContent = video.title || 'Video';
       openLink(yt, video.url);
 
-      const iframe = mk('iframe');
-      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1';
-      iframe.title = video.title || 'Video';
-      iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-      iframe.allowFullscreen = true;
-      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-      frame.replaceChildren(iframe);
+      const myOpen = ++openToken;               // ignore late answers from an earlier open()
+
+      // Shown when YouTube refuses to play the video inside the page
+      const showBlocked = code => {
+        if (myOpen !== openToken) return;
+        const box = mk('div', 'pmodal-blocked');
+        const t = mk('div', 'pmodal-blocked-title');
+        t.textContent = 'This video can\u2019t be played here';
+        const p = mk('div', 'pmodal-blocked-text');
+        p.textContent = (code === 101 || code === 150)
+          ? 'Its owner only allows it to be watched on YouTube.'
+          : 'YouTube could not play it inside the page.';
+        const a = mk('a', 'pmodal-blocked-btn');
+        openLink(a, video.url);
+        a.textContent = 'Watch on YouTube \u2197';
+        box.append(t, p, a);
+        frame.replaceChildren(box);
+      };
+
+      // Plain embed, used if YouTube's player script cannot be loaded
+      const plainIframe = () => {
+        const iframe = mk('iframe');
+        iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1';
+        iframe.title = video.title || 'Video';
+        iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+        iframe.allowFullscreen = true;
+        iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        frame.replaceChildren(iframe);
+      };
+
+      // YouTube's player script reports WHY a video fails (owner blocked embedding, private, ...)
+      const host = mk('div');
+      frame.replaceChildren(host);
+      loadYouTubeApi().then(() => {
+        if (myOpen !== openToken || !frame.contains(host)) return;
+        new YT.Player(host, {
+          host: 'https://www.youtube-nocookie.com',
+          videoId: id,
+          playerVars: { autoplay: 1, rel: 0, playsinline: 1 },
+          events: {
+            onError: e => {
+              // 101 / 150: the owner disabled embedding -> from now on this thumbnail opens YouTube
+              if (e.data === 101 || e.data === 150) markNoEmbed(id);
+              showBlocked(e.data);
+            }
+          }
+        });
+      }).catch(() => { if (myOpen === openToken) plainIframe(); });
 
       back.hidden = false;
       void back.offsetWidth;

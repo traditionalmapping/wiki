@@ -935,3 +935,30 @@ body.menu-open .crosshair { visibility: hidden; }
   .cevent { flex-direction: column; gap: 2px; }
   .cevent-date { flex: none; }
 }
+/* Shown in the video player when YouTube refuses to play the video in the page */
+.pmodal-blocked {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 8%;
+  box-sizing: border-box;
+  background: #0f0f0f;
+  font-family: system-ui, sans-serif;
+}
+.pmodal-blocked-title { font-size: 20px; font-weight: 650; color: #fff; }
+.pmodal-blocked-text { font-size: 14px; color: #aaa; }
+.pmodal-blocked-btn {
+  margin-top: 6px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.pmodal-blocked-btn:hover { background: #e6e6e6; }
+.pmodal-blocked-btn:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
