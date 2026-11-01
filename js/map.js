@@ -132,6 +132,7 @@ async function setBasemap(id) {
   initContinents(map);
   initHistory(map);    // History button, js/history.js
   initBorders(map);    // Historical Borders button, js/borders.js
+  initMyVideos(map);
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => {
