@@ -9,7 +9,8 @@
 //
 //  Nothing is uploaded anywhere. The file and the coordinates are stored in the
 //  visitor's own browser (IndexedDB), so they are private to that person and that
-//  browser. Clearing the browser's site data deletes them.
+//  browser. Clearing the browser's site data deletes them. Videos added from the
+//  shared library are temporary and must be added again after a reload.
 //
 //  Needs one line in js/map.js, after initBorders(map):   initMyVideos(map);
 // ============================================================================
@@ -468,6 +469,7 @@ class MyVideosControl {
     this.items = [];             // { id, name, blob, corners, opacity, visible }
     this.urls = new Map();       // id -> blob: URL
     this.db = null;
+    this.ready = Promise.resolve();
     this.editingId = null;
     this.ui = new Map();         // id -> timeline controls in the list
     this.media = new Map();      // id -> hidden video (+ canvas for cropped videos)
@@ -641,7 +643,19 @@ class MyVideosControl {
     try {
       this.db = await myvOpenDb();
       const all = await myvRun(this.db, 'readonly', s => s.getAll());
-      this.items = (all || []).sort((a, b) => (a.created || 0) - (b.created || 0));
+      const saved = all || [];
+      this.items = saved.filter(it => !it.library).sort((a, b) => (a.created || 0) - (b.created || 0));
+      const oldLibraryItems = saved.filter(it => it.library);
+      if (oldLibraryItems.length) {
+        try {
+          await myvRun(this.db, 'readwrite', s => {
+            oldLibraryItems.forEach(it => s.delete(it.id));
+            return null;
+          });
+        } catch (e) {
+          this.say('Previously saved library videos could not be cleared from this browser.', true);
+        }
+      }
       this.items.forEach(it => this.prepareWarp(it));
     } catch (e) {
       this.db = null;
@@ -662,7 +676,7 @@ class MyVideosControl {
   }
 
   async save(item) {
-    if (item.library && !item.linked) return true;    // videos from data/library are not stored; ones added with links are
+    if (item.library) return true;
     if (!this.db) return false;
     try {
       const rec = Object.assign({}, item);
@@ -1937,6 +1951,19 @@ class MyVideosControl {
   // Reads the georeference file, checks the video and puts it on the map. Returns true when done.
   async addFromStorage(entry, name, videoUrl) {
     this.storageSay('Loading\u2026');
+    await this.ready;
+    const existing = this.items.find(x => x.linked && x.videoUrl === videoUrl);
+    if (existing) {
+      if (!existing.visible) {
+        existing.visible = true;
+        this.drawOne(existing);
+      }
+      this.renderList();
+      this.flyTo(existing);
+      this.storageSay('');
+      return true;
+    }
+
     let data;
     try {
       const res = await fetch(new URL(entry.georef, document.baseURI).href);
@@ -1961,7 +1988,6 @@ class MyVideosControl {
     this.items.push(it);
     this.prepareWarp(it);
     this.drawOne(it);
-    await this.save(it);
     this.renderList();
     this.flyTo(it);
     this.storageSay('');
@@ -2115,7 +2141,7 @@ function initMyVideos(map) {
   const control = new MyVideosControl(map);
   map.addControl(control, 'bottom-left');
   onStyleReady(() => control.redrawAll());   // keep the videos when the base map changes
-  control.load();
+  control.ready = control.load();
 
   // Safety net, same idea as the borders: if a style change wipes the videos, draw them again.
   let redrawing = false;

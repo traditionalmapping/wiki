@@ -114,7 +114,7 @@ const MYV_STORAGE = [
 ];
 ```
 
-Separate multiple entries with commas. After the site is published, visitors can click **My Videos** → **Add video** → **Add to map** to show the overlay.
+Separate multiple entries with commas. After the site is published, visitors can click **My Videos** → **Add video** → **Add to map** to show the overlay. Library videos are added for the current visit only, so visitors need to add them again after reloading the page. Videos selected from their own device are saved in that browser.
 
 ## Common mistakes
 

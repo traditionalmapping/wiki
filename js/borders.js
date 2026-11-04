@@ -20,13 +20,28 @@ const BORDER_DATE_LABELS = { 1939: '1 September 1939', 1945: '5 June 1945' };
 const borderDate = year => BORDER_DATE_LABELS[year] || '1 January ' + year;
 
 // The same dates in sortable form (YYYY-MM-DD). Keep in sync with BORDER_DATE_LABELS.
-// js/countries.js uses them to pick the leaders and government in office on that day.
+// These are the exact dates represented by each annual border snapshot.
 const BORDER_ISO_DATES = { 1939: '1939-09-01', 1945: '1945-06-05' };
 const borderIsoDate = year => BORDER_ISO_DATES[year] || year + '-01-01';
 
-// The year chosen with the year buttons. Other scripts read it, and are told through
-// the "borderyearchange" event on document whenever it changes.
-let selectedBorderYear = BORDER_YEARS[0];
+// The situation date changes monthly; border geometry remains a yearly snapshot.
+// Other scripts listen for situationdatechange or, when the year changes, borderyearchange.
+const borderMonthIndex = date => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
+const firstSituationMonth = borderMonthIndex(borderIsoDate(BORDER_YEARS[0]));
+const lastSituationMonth = borderMonthIndex(borderIsoDate(BORDER_YEARS[BORDER_YEARS.length - 1]));
+const SITUATION_DATES = Array.from({ length: lastSituationMonth - firstSituationMonth + 1 }, (_, i) => {
+  const monthIndex = firstSituationMonth + i;
+  const year = Math.floor(monthIndex / 12);
+  const month = monthIndex % 12 + 1;
+  if (i === 0) return borderIsoDate(BORDER_YEARS[0]);
+  if (i === lastSituationMonth - firstSituationMonth) return borderIsoDate(BORDER_YEARS[BORDER_YEARS.length - 1]);
+  return year + '-' + String(month).padStart(2, '0') + '-01';
+});
+const situationDateLabel = date => new Date(date + 'T00:00:00Z').toLocaleDateString('en-GB', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+});
+let selectedSituationDate = SITUATION_DATES[0];
+let selectedBorderYear = Number(selectedSituationDate.slice(0, 4));
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 // How close (in screen pixels) the cursor must be to a border to blur it.
@@ -52,7 +67,7 @@ class BordersControl {
     this.cache = {};      // year -> loaded GeoJSON
   }
 
-  // The year is chosen with the separate YearSlider (the date slider, always visible, works with borders OFF).
+  // The monthly situation date chooses the annual border snapshot for its year.
   get year() { return selectedBorderYear; }
 
   onAdd() {
@@ -235,7 +250,7 @@ class YearSlider {
     const note = this.note = document.createElement('div');
     note.className = 'timeline-note';
 
-    const last = BORDER_YEARS.length - 1;
+    const last = SITUATION_DATES.length - 1;
     const slider = this.slider = document.createElement('input');
     slider.type = 'range';
     slider.className = 'timeline-slider';
@@ -243,19 +258,20 @@ class YearSlider {
     slider.max = last;
     slider.step = 1;
     slider.setAttribute('aria-label', 'Situation date');
-    slider.addEventListener('input', () => this.setYear(BORDER_YEARS[Number(slider.value)]));
+    slider.addEventListener('input', () => this.setDate(SITUATION_DATES[Number(slider.value)]));
 
-    // Year labels under the slider; clicking one jumps to that date
+    // Year labels mark the annual border snapshots; clicking one jumps to its snapshot date.
     const ticks = document.createElement('div');
     ticks.className = 'timeline-ticks';
-    this.tickButtons = BORDER_YEARS.map((y, i) => {
+    this.tickButtons = BORDER_YEARS.map(y => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'timeline-tick';
       b.textContent = y;
       b.dataset.year = y;
-      b.style.setProperty('--pos', last ? i / last : 0);
-      b.addEventListener('click', () => this.setYear(y));
+      const position = borderMonthIndex(borderIsoDate(y)) - firstSituationMonth;
+      b.style.setProperty('--pos', last ? position / last : 0);
+      b.addEventListener('click', () => this.setDate(borderIsoDate(y)));
       ticks.append(b);
       return b;
     });
@@ -265,20 +281,25 @@ class YearSlider {
     this.refresh();
   }
 
-  setYear(year) {
-    if (year === selectedBorderYear) return;
-    selectedBorderYear = year;
-    document.dispatchEvent(new CustomEvent('borderyearchange', { detail: { year } }));
+  setDate(date) {
+    if (date === selectedSituationDate) return;
+    const previousYear = selectedBorderYear;
+    selectedSituationDate = date;
+    selectedBorderYear = Number(date.slice(0, 4));
+    document.dispatchEvent(new CustomEvent('situationdatechange', { detail: { date, year: selectedBorderYear } }));
+    if (selectedBorderYear !== previousYear) {
+      document.dispatchEvent(new CustomEvent('borderyearchange', { detail: { year: selectedBorderYear, date } }));
+    }
     this.refresh();
-    this.onChange();
+    if (selectedBorderYear !== previousYear) this.onChange();
   }
 
   refresh() {
-    this.slider.value = BORDER_YEARS.indexOf(selectedBorderYear);
+    this.slider.value = SITUATION_DATES.indexOf(selectedSituationDate);
     this.tickButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === selectedBorderYear));
     const date = document.createElement('strong');
-    date.textContent = borderDate(selectedBorderYear);
-    this.note.replaceChildren('Situation on ', date);
+    date.textContent = situationDateLabel(selectedSituationDate);
+    this.note.replaceChildren('Situation on ', date, ' · borders/frontlines update yearly');
   }
 }
 

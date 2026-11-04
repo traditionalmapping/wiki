@@ -797,16 +797,20 @@ function countryImg(src) {
   return /^[a-z][a-z0-9+.-]*:/i.test(s) ? null : s;   // a path inside the site folder
 }
 
-// ---- What was true on the date of the selected map year ----
+// ---- What was true on the currently selected situation date ----
 // 'YYYY' or 'YYYY-MM-DD' -> comparable 'YYYY-MM-DD'
 const isoDay = d => /^\d{4}$/.test(String(d)) ? d + '-01-01' : String(d || '');
 
-// The date the Historical Borders buttons stand on, or '' if borders.js is missing
+// Monthly situation date, or the annual border snapshot date if borders.js is missing.
 function mapDate() {
+  if (typeof selectedSituationDate === 'string') return selectedSituationDate;
   return (typeof borderIsoDate === 'function' && typeof selectedBorderYear !== 'undefined')
     ? borderIsoDate(selectedBorderYear) : '';
 }
 function mapDateLabel() {
+  if (typeof situationDateLabel === 'function' && typeof selectedSituationDate === 'string') {
+    return situationDateLabel(selectedSituationDate);
+  }
   return (typeof borderDate === 'function' && typeof selectedBorderYear !== 'undefined')
     ? borderDate(selectedBorderYear) : '';
 }
@@ -1123,8 +1127,8 @@ function createCountryModal() {
     addEvents();
   };
 
-  // The year buttons of Historical Borders were pressed
-  document.addEventListener('borderyearchange', () => {
+  // The date slider moved to another month.
+  document.addEventListener('situationdatechange', () => {
     if (isOpen() && current) render(current);
   });
 
@@ -1303,7 +1307,7 @@ function initCountries(map, panelRoot, goTo) {
     if (!keepScroll) list.scrollTop = 0;
   };
   search.addEventListener('input', () => render());
-  document.addEventListener('borderyearchange', () => render(true));   // folders follow the map year
+  document.addEventListener('situationdatechange', () => render(true));   // folders follow the map date
   render();
   panelRoot.append(tools, list);
 
