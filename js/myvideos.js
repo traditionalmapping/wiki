@@ -84,6 +84,12 @@ function myvParseCorners(text, order) {
   return { corners: pts };
 }
 
+// metres -> "320 m" / "1.4 km"
+function myvMeters(m) {
+  if (!isFinite(m)) return '';
+  return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' km';
+}
+
 // seconds -> "1:05"
 function myvClock(sec) {
   if (!isFinite(sec)) return '0:00';
@@ -130,34 +136,327 @@ function myvSvg(name, attrs, cls) {
   return e;
 }
 
+// ---------- georeferencing with control points (like the QGIS Georeferencer) ----------
+// A control point pairs a spot on the video picture (u, v = fractions of the picture) with its
+// place on the map (lng, lat). From the pairs a transformation is fitted, and the picture's
+// four corners are moved through it. MapLibre can draw any 4-corner quad (that includes
+// perspective), so Linear, Helmert, Polynomial 1 (affine) and Projective can all be shown.
+const MYV_METHODS = {
+  linear:     { label: 'Linear (2+ points: scale and shift)', min: 2 },
+  helmert:    { label: 'Helmert (2+ points: scale, rotate, shift)', min: 2 },
+  affine:     { label: 'Polynomial 1 / Affine (3+ points)', min: 3 },
+  projective: { label: 'Projective (4+ points: with perspective)', min: 4 },
+  poly2:      { label: 'Polynomial 2 (6+ points, curved)', min: 6, curved: true },
+  poly3:      { label: 'Polynomial 3 (10+ points, curved)', min: 10, curved: true },
+  tps:        { label: 'Thin plate spline (3+ points, curved)', min: 3, curved: true }
+};
+
+function myvSolve(M, b) {                         // Gaussian elimination, null when singular
+  const n = b.length;
+  const a = M.map((row, i) => row.concat([b[i]]));
+  for (let c = 0; c < n; c++) {
+    let piv = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(a[r][c]) > Math.abs(a[piv][c])) piv = r;
+    if (Math.abs(a[piv][c]) < 1e-12) return null;
+    const t = a[c]; a[c] = a[piv]; a[piv] = t;
+    for (let r = c + 1; r < n; r++) {
+      const f = a[r][c] / a[c][c];
+      for (let k = c; k <= n; k++) a[r][k] -= f * a[c][k];
+    }
+  }
+  const x = new Array(n);
+  for (let r = n - 1; r >= 0; r--) {
+    let sum = a[r][n];
+    for (let k = r + 1; k < n; k++) sum -= a[r][k] * x[k];
+    x[r] = sum / a[r][r];
+  }
+  return x;
+}
+
+// pairs: [{x, y, X, Y}]  picture units -> Mercator world units.  Returns { f(x, y) -> [X, Y, w] } or { error }.
+function myvFitTransform(method, pairs) {
+  const n = pairs.length, need = MYV_METHODS[method].min;
+  if (n < need) return { error: 'Add ' + (need - n) + ' more point' + (need - n > 1 ? 's' : '') + ' for this transformation.' };
+  const mean = k => pairs.reduce((t, p) => t + p[k], 0) / n;
+  const mx = mean('X'), my = mean('Y');
+  let sc = 0;
+  pairs.forEach(p => { sc = Math.max(sc, Math.abs(p.X - mx), Math.abs(p.Y - my)); });
+  if (!(sc > 1e-12)) return { error: 'All the map points are at the same place.' };
+  const P = pairs.map(p => ({ x: p.x, y: p.y, X: (p.X - mx) / sc, Y: (p.Y - my) / sc }));
+  const xb = P.reduce((t, p) => t + p.x, 0) / n, yb = P.reduce((t, p) => t + p.y, 0) / n;
+  const Xb = P.reduce((t, p) => t + p.X, 0) / n, Yb = P.reduce((t, p) => t + p.Y, 0) / n;
+  let f = null;
+
+  if (method === 'linear') {
+    let sxx = 0, sxX = 0, syy = 0, syY = 0;
+    P.forEach(p => { sxx += (p.x - xb) ** 2; sxX += (p.x - xb) * (p.X - Xb); syy += (p.y - yb) ** 2; syY += (p.y - yb) * (p.Y - Yb); });
+    if (sxx < 1e-12 || syy < 1e-12) return { error: 'The points must differ both across and down the picture.' };
+    const a = sxX / sxx, d = syY / syy;
+    f = (x, y) => [a * (x - xb) + Xb, d * (y - yb) + Yb, 1];
+  } else if (method === 'helmert') {
+    let den = 0, na = 0, nb = 0;
+    P.forEach(p => {
+      const dx = p.x - xb, dy = p.y - yb, dX = p.X - Xb, dY = p.Y - Yb;
+      den += dx * dx + dy * dy;
+      na += dx * dX + dy * dY;
+      nb += dx * dY - dy * dX;
+    });
+    if (den < 1e-12) return { error: 'The points on the picture are all at the same spot.' };
+    const a = na / den, b = nb / den;
+    f = (x, y) => { const dx = x - xb, dy = y - yb; return [a * dx - b * dy + Xb, b * dx + a * dy + Yb, 1]; };
+  } else if (method === 'affine') {
+    const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rX = [0, 0, 0], rY = [0, 0, 0];
+    P.forEach(p => {
+      const v = [p.x, p.y, 1];
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) M[i][j] += v[i] * v[j];
+        rX[i] += v[i] * p.X;
+        rY[i] += v[i] * p.Y;
+      }
+    });
+    const cx = myvSolve(M, rX), cy = myvSolve(M, rY);
+    if (!cx || !cy) return { error: 'The points are in a line. Spread them out over the picture.' };
+    f = (x, y) => [cx[0] * x + cx[1] * y + cx[2], cy[0] * x + cy[1] * y + cy[2], 1];
+  } else if (method === 'projective') {
+    const M = Array.from({ length: 8 }, () => new Array(8).fill(0)), r = new Array(8).fill(0);
+    const add = (row, rhs) => {
+      for (let i = 0; i < 8; i++) { for (let j = 0; j < 8; j++) M[i][j] += row[i] * row[j]; r[i] += row[i] * rhs; }
+    };
+    P.forEach(p => {
+      add([p.x, p.y, 1, 0, 0, 0, -p.x * p.X, -p.y * p.X], p.X);
+      add([0, 0, 0, p.x, p.y, 1, -p.x * p.Y, -p.y * p.Y], p.Y);
+    });
+    const h = myvSolve(M, r);
+    if (!h) return { error: 'The points do not define a perspective (three or more are in a line?).' };
+    f = (x, y) => {
+      const w = h[6] * x + h[7] * y + 1;
+      return [(h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w, w];
+    };
+  } else if (method === 'poly2' || method === 'poly3') {
+    const cube = method === 'poly3', k = cube ? 10 : 6;
+    const rx = Math.max(1e-9, ...P.map(p => Math.abs(p.x - xb))), ry = Math.max(1e-9, ...P.map(p => Math.abs(p.y - yb)));
+    const terms = (x, y) => {
+      const a = (x - xb) / rx, b = (y - yb) / ry;
+      const t = [1, a, b, a * a, a * b, b * b];
+      if (cube) t.push(a * a * a, a * a * b, a * b * b, b * b * b);
+      return t;
+    };
+    const M = Array.from({ length: k }, () => new Array(k).fill(0)), rX = new Array(k).fill(0), rY = new Array(k).fill(0);
+    P.forEach(p => {
+      const t = terms(p.x, p.y);
+      for (let i = 0; i < k; i++) {
+        for (let j = 0; j < k; j++) M[i][j] += t[i] * t[j];
+        rX[i] += t[i] * p.X;
+        rY[i] += t[i] * p.Y;
+      }
+    });
+    const cx = myvSolve(M, rX), cy = myvSolve(M, rY);
+    if (!cx || !cy) return { error: 'These points do not pin down a curve. Spread more points over the whole picture.' };
+    f = (x, y) => {
+      const t = terms(x, y);
+      let X = 0, Y = 0;
+      for (let i = 0; i < k; i++) { X += cx[i] * t[i]; Y += cy[i] * t[i]; }
+      return [X, Y, 1];
+    };
+  } else {                                           // thin plate spline: passes exactly through every point
+    const U = r2 => (r2 > 0 ? 0.5 * r2 * Math.log(r2) : 0);
+    const L = Array.from({ length: n + 3 }, () => new Array(n + 3).fill(0));
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) L[i][j] = U((P[i].x - P[j].x) ** 2 + (P[i].y - P[j].y) ** 2);
+      L[i][i] += 1e-9;
+      L[i][n] = 1; L[i][n + 1] = P[i].x; L[i][n + 2] = P[i].y;
+      L[n][i] = 1; L[n + 1][i] = P[i].x; L[n + 2][i] = P[i].y;
+    }
+    const wx = myvSolve(L, P.map(q => q.X).concat([0, 0, 0])), wy = myvSolve(L, P.map(q => q.Y).concat([0, 0, 0]));
+    if (!wx || !wy) return { error: 'The points must not all lie on one line, and no two may be at the same spot.' };
+    f = (x, y) => {
+      let X = wx[n] + wx[n + 1] * x + wx[n + 2] * y, Y = wy[n] + wy[n + 1] * x + wy[n + 2] * y;
+      for (let i = 0; i < n; i++) {
+        const u = U((x - P[i].x) ** 2 + (y - P[i].y) ** 2);
+        X += wx[i] * u;
+        Y += wy[i] * u;
+      }
+      return [X, Y, 1];
+    };
+  }
+  return { f: (x, y) => { const o = f(x, y); return [o[0] * sc + mx, o[1] * sc + my, o[2]]; } };
+}
+
+// ---------- curved warps: the picture is drawn as a mesh of small triangles ----------
+// Every mesh point of the picture is moved through the fitted transformation, so edges can bend
+// (like a QGIS raster georeferenced with a polynomial or thin plate spline).
+function myvBuildMesh(fit, A, crop, N) {
+  const c = crop || { x: 0, y: 0, w: 1, h: 1 };
+  const mid = fit.f(A / 2, 0.5);
+  const cx = mid[0], cy = mid[1];
+  const verts = new Float32Array((N + 1) * (N + 1) * 4);
+  let k = 0;
+  for (let j = 0; j <= N; j++) {
+    for (let i = 0; i <= N; i++) {
+      const a = i / N, b = j / N;
+      const q = fit.f(a * A, b);
+      if (!isFinite(q[0]) || !isFinite(q[1])) return null;
+      verts[k++] = q[0] - cx;                 // relative to the centre: keeps full precision when zoomed in
+      verts[k++] = q[1] - cy;
+      verts[k++] = c.x + a * c.w;             // the crop is just a smaller part of the texture
+      verts[k++] = c.y + b * c.h;
+    }
+  }
+  const idx = new Uint16Array(N * N * 6);
+  k = 0;
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const v0 = j * (N + 1) + i, v1 = v0 + 1, v2 = v0 + N + 1, v3 = v2 + 1;
+      idx[k++] = v0; idx[k++] = v1; idx[k++] = v2;
+      idx[k++] = v1; idx[k++] = v3; idx[k++] = v2;
+    }
+  }
+  return { verts, idx, cx, cy };
+}
+
+// A MapLibre custom layer that draws the video on such a mesh with WebGL
+class MyvMeshLayer {
+  constructor(id, video, opacity, sharp) {
+    this.id = id;
+    this.type = 'custom';
+    this.renderingMode = '2d';
+    this.video = video;
+    this.opacity = opacity;
+    this.sharp = !!sharp;
+    this.mesh = null;
+    this.dirty = false;
+    this.uploaded = false;
+    this.lastT = -1;
+  }
+
+  setMesh(mesh) {
+    this.mesh = mesh;
+    this.dirty = true;
+    if (this.map) this.map.triggerRepaint();
+  }
+
+  onAdd(map, gl) {
+    this.map = map;
+    this.gl = gl;
+    const shader = (type, src) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      return sh;
+    };
+    const vs = shader(gl.VERTEX_SHADER,
+      'attribute vec2 a_pos; attribute vec2 a_uv; uniform mat4 u_matrix; varying vec2 v_uv;' +
+      'void main() { v_uv = a_uv; gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0); }');
+    const fs = shader(gl.FRAGMENT_SHADER,
+      'precision mediump float; uniform sampler2D u_tex; uniform float u_alpha; varying vec2 v_uv;' +
+      'void main() { gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb, 1.0) * u_alpha; }');
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error('My Videos: shader failed', gl.getProgramInfoLog(prog)); return; }
+    this.prog = prog;
+    this.aPos = gl.getAttribLocation(prog, 'a_pos');
+    this.aUv = gl.getAttribLocation(prog, 'a_uv');
+    this.uMatrix = gl.getUniformLocation(prog, 'u_matrix');
+    this.uTex = gl.getUniformLocation(prog, 'u_tex');
+    this.uAlpha = gl.getUniformLocation(prog, 'u_alpha');
+    this.vbuf = gl.createBuffer();
+    this.ibuf = gl.createBuffer();
+    this.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const filter = this.sharp ? gl.NEAREST : gl.LINEAR;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+  }
+
+  onRemove(map, gl) {
+    if (this.prog) gl.deleteProgram(this.prog);
+    if (this.vbuf) gl.deleteBuffer(this.vbuf);
+    if (this.ibuf) gl.deleteBuffer(this.ibuf);
+    if (this.tex) gl.deleteTexture(this.tex);
+    this.prog = null;
+  }
+
+  render(gl, matrix) {
+    const v = this.video, mesh = this.mesh;
+    if (!this.prog || !mesh || !v || v.readyState < 2 || !v.videoWidth) return;
+    gl.useProgram(this.prog);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    if (!this.uploaded || v.currentTime !== this.lastT) {            // a new video picture
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v);
+      this.uploaded = true;
+      this.lastT = v.currentTime;
+    }
+    gl.uniform1i(this.uTex, 0);
+    gl.uniform1f(this.uAlpha, this.opacity);
+
+    // move the map matrix to the mesh centre in double precision, then hand it over as floats
+    const out = new Float32Array(16);
+    for (let i = 0; i < 16; i++) out[i] = matrix[i];
+    out[12] = matrix[0] * mesh.cx + matrix[4] * mesh.cy + matrix[12];
+    out[13] = matrix[1] * mesh.cx + matrix[5] * mesh.cy + matrix[13];
+    out[14] = matrix[2] * mesh.cx + matrix[6] * mesh.cy + matrix[14];
+    out[15] = matrix[3] * mesh.cx + matrix[7] * mesh.cy + matrix[15];
+    gl.uniformMatrix4fv(this.uMatrix, false, out);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbuf);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuf);
+    if (this.dirty) {
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.verts, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.idx, gl.DYNAMIC_DRAW);
+      this.dirty = false;
+    }
+    gl.enableVertexAttribArray(this.aPos);
+    gl.vertexAttribPointer(this.aPos, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(this.aUv);
+    gl.vertexAttribPointer(this.aUv, 2, gl.FLOAT, false, 16, 8);
+    gl.drawElements(gl.TRIANGLES, mesh.idx.length, gl.UNSIGNED_SHORT, 0);
+    gl.disableVertexAttribArray(this.aPos);
+    gl.disableVertexAttribArray(this.aUv);
+  }
+}
+
 function myvFormatCorners(corners, order) {
   const r = n => Math.round(n * 1e6) / 1e6;
   return corners.map(c => order === 'lnglat' ? r(c[0]) + ', ' + r(c[1]) : r(c[1]) + ', ' + r(c[0])).join('\n');
 }
 
-// Checks that the browser can actually play the chosen file.
-function myvCanPlay(file) {
+// Checks that the browser can play the file; gives { w, h } (the video's size) or null.
+function myvProbe(file) {
   return new Promise(resolve => {
     const url = URL.createObjectURL(file);
     const v = document.createElement('video');
     let done = false;
-    const finish = ok => {
+    const finish = result => {
       if (done) return;
       done = true;
       clearTimeout(timer);
       v.removeAttribute('src');
       v.load();
       URL.revokeObjectURL(url);
-      resolve(ok);
+      resolve(result);
     };
-    const timer = setTimeout(() => finish(false), 10000);
+    const timer = setTimeout(() => finish(null), 10000);
     v.preload = 'metadata';
     v.muted = true;
-    v.onloadedmetadata = () => finish(true);
-    v.onerror = () => finish(false);
+    v.onloadedmetadata = () => finish({ w: v.videoWidth, h: v.videoHeight });
+    v.onerror = () => finish(null);
     v.src = url;
   });
 }
+const myvCanPlay = file => myvProbe(file).then(r => !!r);
 
 class MyVideosControl {
   constructor(map) {
@@ -167,7 +466,8 @@ class MyVideosControl {
     this.db = null;
     this.editingId = null;
     this.ui = new Map();         // id -> timeline controls in the list
-    this.media = new Map();      // id -> hidden video + canvas used for cropped videos
+    this.media = new Map();      // id -> hidden video (+ canvas for cropped videos)
+    this.meshLayers = new Map(); // id -> WebGL layer of a curved (warped) video
     this.crop = { x: 0, y: 0, w: 1, h: 1 };   // crop shown in the form (fractions of the video)
     this.previewUrl = null;
   }
@@ -228,6 +528,16 @@ class MyVideosControl {
     this.nameIn.placeholder = 'optional';
     nameLabel.append(this.nameIn);
 
+    const placeField = myvEl('label', 'myv-field');
+    placeField.append(myvEl('span', 'myv-label', 'Placement'));
+    this.placeSel = myvEl('select');
+    [['gcp', 'Georeference with points (like QGIS)'], ['hand', 'Place by hand on the map']].forEach(([v, t]) => {
+      const o = myvEl('option', '', t);
+      o.value = v;
+      this.placeSel.append(o);
+    });
+    placeField.append(this.placeSel);
+
     const cornerLabel = myvEl('div', 'myv-field');
     const cornerHead = myvEl('div', 'myv-row');
     cornerHead.append(myvEl('span', 'myv-label', 'Corners (optional)'));
@@ -241,9 +551,9 @@ class MyVideosControl {
     this.cornersIn = myvEl('textarea');
     this.cornersIn.rows = 5;
     this.cornersIn.spellcheck = false;
-    this.cornersIn.placeholder = 'Leave empty: the video appears at the crosshair and you move, rotate and resize it by hand.\n\nOr type points, one per line:\ntop-left, top-right, bottom-right, bottom-left\n(or 2 points: top-left and bottom-right)';
+    this.cornersIn.placeholder = 'Leave empty to use the placement above.\n\nOr type points, one per line:\ntop-left, top-right, bottom-right, bottom-left\n(or 2 points: top-left and bottom-right)';
     cornerLabel.append(cornerHead, this.cornersIn);
-    cornerLabel.append(myvEl('div', 'myv-hint', 'Leave this empty to drop the video at the crosshair and place it by hand. If you cropped the video, the corners are those of the cropped part.'));
+    cornerLabel.append(myvEl('div', 'myv-hint', 'Leave this empty to use the placement above. If you cropped the video, the corners are those of the cropped part.'));
 
     const dateField = myvEl('div', 'myv-field');
     dateField.append(myvEl('span', 'myv-label', 'Timeline (optional)'));
@@ -271,8 +581,12 @@ class MyVideosControl {
     myvFill(this.opIn);
     this.opIn.addEventListener('input', () => {
       myvFill(this.opIn);
-      if (this.editingId) this.map.getLayer(myvLayerId(this.editingId)) &&
+      if (!this.editingId) return;
+      const L = this.meshLayers.get(this.editingId);
+      if (L) { L.opacity = Number(this.opIn.value); this.map.triggerRepaint(); return; }
+      if (this.map.getLayer(myvLayerId(this.editingId))) {
         this.map.setPaintProperty(myvLayerId(this.editingId), 'raster-opacity', Number(this.opIn.value));
+      }
     });
     opLabel.append(this.opIn);
 
@@ -294,17 +608,20 @@ class MyVideosControl {
     this.status = myvEl('div', 'myv-status');
     this.status.hidden = true;
 
-    form.append(fileLabel, cropBox, nameLabel, cornerLabel, dateField, opLabel, sharpLabel, buttons, this.status);
+    form.append(fileLabel, cropBox, nameLabel, placeField, cornerLabel, dateField, opLabel, sharpLabel, buttons, this.status);
     panel.append(form);
 
     el.append(toggle);
     document.body.append(panel);
+    this.buildGeorefDialog();
     this.renderList();
     return el;
   }
 
   onRemove() {
     if (this.tf) this.endTransform(false);
+    if (this.gr) this.endGeoref(false);
+    this.grModal.remove();
     this.media.forEach((m, id) => this.disposeMedia(id));
     this.urls.forEach(u => URL.revokeObjectURL(u));
     this.hideCropEditor();
@@ -331,6 +648,7 @@ class MyVideosControl {
       this.db = await myvOpenDb();
       const all = await myvRun(this.db, 'readonly', s => s.getAll());
       this.items = (all || []).sort((a, b) => (a.created || 0) - (b.created || 0));
+      this.items.forEach(it => this.prepareWarp(it));
     } catch (e) {
       this.db = null;
       this.say('This browser cannot save videos (private mode?). They will be lost when you reload.', true);
@@ -341,7 +659,12 @@ class MyVideosControl {
 
   async save(item) {
     if (!this.db) return false;
-    try { await myvRun(this.db, 'readwrite', s => s.put(item)); return true; }
+    try {
+      const rec = Object.assign({}, item);
+      delete rec._mesh;                                  // functions cannot be stored
+      await myvRun(this.db, 'readwrite', s => s.put(rec));
+      return true;
+    }
     catch (e) { return false; }
   }
 
@@ -352,11 +675,13 @@ class MyVideosControl {
     try {
       if (map.getLayer(lid)) map.removeLayer(lid);
       if (map.getSource(sid)) map.removeSource(sid);
+      this.meshLayers.delete(it.id);
       if (!it.visible) {
         const hidden = this.media.get(it.id);
         if (hidden) hidden.video.pause();            // no need to keep decoding a hidden video
         return;
       }
+      if (it._mesh) { this.drawMesh(it); return; }
       if (this.isCropped(it)) { this.drawCropped(it); return; }
       let url = this.urls.get(it.id);
       if (!url) { url = URL.createObjectURL(it.blob); this.urls.set(it.id, url); }
@@ -513,6 +838,507 @@ class MyVideosControl {
       { padding: 80, duration: 1200, maxZoom: 12 });
   }
 
+  // ---------- curved warps ----------
+  // Rebuilds a saved curved warp (Polynomial 2/3, thin plate spline) from the saved control points
+  prepareWarp(it) {
+    it._mesh = null;
+    const meta = MYV_METHODS[it.gcpMethod];
+    if (!meta || !meta.curved || !it.gcps || !it.gcpAspect) return;
+    const pairs = it.gcps.map(p => {
+      const m = myvMerc([p.lng, p.lat]);
+      return { x: p.u * it.gcpAspect, y: p.v, X: m.x, Y: m.y };
+    });
+    const fit = myvFitTransform(it.gcpMethod, pairs);
+    if (!fit.error) it._mesh = { fit, A: it.gcpAspect };
+  }
+
+  makeMeshMedia(it) {
+    let url = this.urls.get(it.id);
+    if (!url) { url = URL.createObjectURL(it.blob); this.urls.set(it.id, url); }
+    const v = document.createElement('video');
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v._myvCropped = true;                      // jumps only need a redraw, not the play/pause trick
+    v.src = url;
+    const m = { video: v, mesh: true, alive: true, raf: 0, sleep: 0, pending: false };
+    this.media.set(it.id, m);
+    const loop = () => {
+      m.raf = 0;
+      if (!m.alive) return;
+      this.map.triggerRepaint();
+      if (!v.paused && !v.ended) m.raf = requestAnimationFrame(loop);
+    };
+    v.addEventListener('play', () => { if (!m.raf) m.raf = requestAnimationFrame(loop); });
+    ['pause', 'seeked', 'loadeddata'].forEach(ev => v.addEventListener(ev, () => this.map.triggerRepaint()));
+    this.bindVideo(it, v);
+    return m;
+  }
+
+  drawMesh(it) {
+    const map = this.map, lid = myvLayerId(it.id);
+    const m = this.media.get(it.id) || this.makeMeshMedia(it);
+    const mesh = myvBuildMesh(it._mesh.fit, it._mesh.A, it.crop, 32);
+    if (!mesh) return;
+    const layer = new MyvMeshLayer(lid, m.video, it.opacity, it.sharp);
+    layer.setMesh(mesh);
+    const before = map.getLayer('borders-glow-1') ? 'borders-glow-1' : undefined;
+    map.addLayer(layer, before);
+    this.meshLayers.set(it.id, layer);
+    const p = m.video.play();
+    if (p && p.catch) p.catch(() => {});
+  }
+
+  updateMesh(it) {
+    const layer = this.meshLayers.get(it.id);
+    if (!layer || !it._mesh) return;
+    const mesh = myvBuildMesh(it._mesh.fit, it._mesh.A, it.crop, 32);
+    if (mesh) layer.setMesh(mesh);
+  }
+
+  // Shows the result of a fit: a curved mesh, or the usual flat 4-corner picture
+  applyWarp(it, fit, A, curved) {
+    const was = !!it._mesh;
+    if (curved && fit) {
+      it._mesh = { fit, A };
+      if (!was) { this.disposeMedia(it.id); this.drawOne(it); }      // switch to the mesh
+      else this.updateMesh(it);
+    } else {
+      it._mesh = null;
+      if (was) { this.disposeMedia(it.id); this.drawOne(it); }       // back to the flat picture
+      else this.applyCorners(it);
+    }
+  }
+
+  // ---------- georeferencer (control points, like QGIS) ----------
+  buildGeorefDialog() {
+    const modal = this.grModal = myvEl('div', 'myv-cropmodal myv-grmodal');
+    modal.hidden = true;
+    const dlg = myvEl('div', 'myv-cropdlg myv-grdlg');
+    dlg.setAttribute('role', 'dialog');
+    dlg.setAttribute('aria-modal', 'true');
+    dlg.setAttribute('aria-label', 'Georeference video');
+
+    const head = myvEl('div', 'myv-head');
+    this.grTitle = myvEl('div', 'myv-title', 'Georeference');
+    const x = myvEl('button', 'myv-icon myv-close', '\u2715');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Cancel');
+    x.addEventListener('click', () => this.endGeoref(false));
+    head.append(this.grTitle, x);
+
+    const body = myvEl('div', 'myv-grbody');
+
+    // --- left: the video picture, with zoom and pan ---
+    const left = myvEl('div', 'myv-grleft');
+    const viewer = this.grViewer = myvEl('div', 'myv-grviewer');
+    const content = this.grContent = myvEl('div', 'myv-grcontent');
+    const frame = this.grFrame = myvEl('div', 'myv-grframe');
+    const vid = this.grVideo = myvEl('video');
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.preload = 'auto';
+    frame.append(vid);
+    content.append(frame);
+    viewer.append(content);
+    left.append(viewer);
+
+    const scrubRow = myvEl('div', 'myv-field');
+    scrubRow.append(myvEl('span', 'myv-label', 'Video frame'));
+    const scrub = this.grScrub = myvEl('input');
+    scrub.type = 'range';
+    scrub.min = '0';
+    scrub.max = '1000';
+    scrub.value = '0';
+    scrub.setAttribute('aria-label', 'Video frame');
+    scrub.addEventListener('input', () => {
+      myvFill(scrub);
+      if (isFinite(vid.duration)) vid.currentTime = (Number(scrub.value) / 1000) * vid.duration;
+    });
+    scrubRow.append(scrub);
+    left.append(scrubRow, myvEl('div', 'myv-hint', 'Scroll to zoom, drag to move the picture. Click a spot you can recognise on the map, then click the same spot on the real map.'));
+
+    // --- right: method, points, result ---
+    const right = myvEl('div', 'myv-grright');
+    const mField = myvEl('label', 'myv-field');
+    mField.append(myvEl('span', 'myv-label', 'Transformation'));
+    const msel = this.grMethod = myvEl('select');
+    Object.keys(MYV_METHODS).forEach(k => {
+      const o = myvEl('option', '', MYV_METHODS[k].label);
+      o.value = k;
+      msel.append(o);
+    });
+    msel.addEventListener('change', () => {
+      if (!this.gr) return;
+      this.gr.method = msel.value;
+      this.grRefit();
+      this.grRender();
+    });
+    mField.append(msel);
+
+    const addBtn = this.grAddBtn = myvEl('button', 'myv-btn myv-primary', 'Add point');
+    addBtn.type = 'button';
+    addBtn.setAttribute('aria-pressed', 'true');
+    addBtn.addEventListener('click', () => {
+      if (!this.gr) return;
+      this.gr.addMode = !this.gr.addMode;
+      this.grSyncAddBtn();
+    });
+
+    this.grList = myvEl('div', 'myv-grpoints');
+    this.grStatus = myvEl('div', 'myv-status');
+
+    const foot = myvEl('div', 'myv-cropbtns myv-grfoot');
+    const cancel = myvEl('button', 'myv-btn', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => this.endGeoref(false));
+    const done = this.grDone = myvEl('button', 'myv-btn myv-primary', 'Done');
+    done.type = 'button';
+    done.addEventListener('click', () => this.endGeoref(true));
+    foot.append(cancel, done);
+    right.append(mField, addBtn, this.grList, this.grStatus, foot);
+
+    body.append(left, right);
+    dlg.append(head, body);
+    modal.append(dlg);
+    document.body.append(modal);
+
+    modal.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); this.endGeoref(false); } });
+
+    // zoom with the wheel, about the pointer
+    viewer.addEventListener('wheel', e => {
+      const g = this.gr;
+      if (!g || !g.ready) return;
+      e.preventDefault();
+      const r = viewer.getBoundingClientRect();
+      const px = e.clientX - r.left, py = e.clientY - r.top;
+      const ns = Math.min(40, Math.max(0.4, g.s * (e.deltaY < 0 ? 1.18 : 1 / 1.18)));
+      g.tx = px - (px - g.tx) * (ns / g.s);
+      g.ty = py - (py - g.ty) * (ns / g.s);
+      g.s = ns;
+      this.grLayout();
+    }, { passive: false });
+
+    // drag = move the picture, click = add a point
+    viewer.addEventListener('pointerdown', e => {
+      const g = this.gr;
+      if (!g || !g.ready || e.button !== 0) return;
+      const st = { x: e.clientX, y: e.clientY, tx: g.tx, ty: g.ty, moved: false };
+      try { viewer.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      const move = ev => {
+        const dx = ev.clientX - st.x, dy = ev.clientY - st.y;
+        if (!st.moved && Math.hypot(dx, dy) < 4) return;
+        st.moved = true;
+        g.tx = st.tx + dx;
+        g.ty = st.ty + dy;
+        this.grLayout();
+      };
+      const up = ev => {
+        viewer.removeEventListener('pointermove', move);
+        viewer.removeEventListener('pointerup', up);
+        viewer.removeEventListener('pointercancel', up);
+        if (!st.moved && ev.type === 'pointerup' && this.gr && this.gr.addMode) this.grAddPoint(ev.clientX, ev.clientY);
+      };
+      viewer.addEventListener('pointermove', move);
+      viewer.addEventListener('pointerup', up);
+      viewer.addEventListener('pointercancel', up);
+    });
+  }
+
+  grSyncAddBtn() {
+    const on = !!(this.gr && this.gr.addMode);
+    this.grAddBtn.classList.toggle('myv-primary', on);
+    this.grAddBtn.setAttribute('aria-pressed', String(on));
+    this.grViewer.classList.toggle('adding', on);
+  }
+
+  startGeoref(it) {
+    if (this.tf) this.endTransform(true);
+    if (this.gr) this.endGeoref(true);
+    const map = this.map;
+    this.grWasOpen = !this.panel.hidden;
+    this.setOpen(false);
+    if (!it.visible) { it.visible = true; this.drawOne(it); this.renderList(); }
+
+    const c = it.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const url = URL.createObjectURL(it.blob);
+    this.gr = {
+      it, url, c,
+      orig: { corners: it.corners.map(p => p.slice()), mesh: it._mesh || null },
+      gcps: (it.gcps || []).map(p => Object.assign({}, p)),
+      method: it.gcpMethod || 'affine',
+      addMode: true, ready: false, aspect: 1, srcW: 0, srcH: 0,
+      s: 1, tx: 0, ty: 0, picking: -1, markers: [], fit: null
+    };
+    this.grTitle.textContent = 'Georeference: ' + it.name;
+    this.grMethod.value = this.gr.method;
+    this.grSyncAddBtn();
+
+    const vid = this.grVideo;
+    vid.onloadedmetadata = () => {
+      const g = this.gr;
+      if (!g) return;
+      g.srcW = vid.videoWidth * c.w;
+      g.srcH = vid.videoHeight * c.h;
+      g.aspect = g.srcW / g.srcH;
+      g.ready = true;
+      this.grFitView();
+      vid.currentTime = Math.min(0.5, (vid.duration || 1) / 2);
+      this.grRefit();
+      this.grRender();
+    };
+    vid.src = url;
+    this.grScrub.value = '0';
+    myvFill(this.grScrub);
+    this.grModal.hidden = false;
+    this.grRefit();
+    this.grRender();
+    this.grAddBtn.focus();
+  }
+
+  // Sizes the viewer to the screen and fits the whole picture into it
+  grFitView() {
+    const g = this.gr, v = this.grViewer;
+    if (!g || !g.ready) return;
+    const narrow = window.innerWidth < 800;
+    const vw = narrow ? window.innerWidth * 0.9 - 36 : Math.min(window.innerWidth * 0.92, 1200) - 380;
+    const vh = Math.max(200, window.innerHeight * (narrow ? 0.42 : 0.96) - (narrow ? 120 : 210));
+    v.style.width = Math.round(Math.max(240, vw)) + 'px';
+    v.style.height = Math.round(vh) + 'px';
+    const W = Math.max(240, vw);
+    const fw = Math.min(W, vh * g.aspect), fh = fw / g.aspect;
+    g.fw = fw;
+    g.fh = fh;
+    this.grFrame.style.width = fw + 'px';
+    this.grFrame.style.height = fh + 'px';
+    const vd = this.grVideo, c = g.c;                 // show only the cropped part of the video
+    vd.style.width = fw / c.w + 'px';
+    vd.style.height = fh / c.h + 'px';
+    vd.style.left = -c.x * fw / c.w + 'px';
+    vd.style.top = -c.y * fh / c.h + 'px';
+    g.s = 1;
+    g.tx = (W - fw) / 2;
+    g.ty = (vh - fh) / 2;
+    this.grLayout();
+  }
+
+  grLayout() {
+    const g = this.gr;
+    if (!g) return;
+    this.grContent.style.transform = 'translate(' + g.tx + 'px,' + g.ty + 'px) scale(' + g.s + ')';
+    this.grContent.style.setProperty('--inv', String(1 / g.s));
+  }
+
+  grAddPoint(cx, cy) {
+    const g = this.gr, r = this.grFrame.getBoundingClientRect();
+    const u = (cx - r.left) / r.width, v = (cy - r.top) / r.height;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return;
+    g.gcps.push({ u, v, lng: null, lat: null });
+    this.grPick(g.gcps.length - 1);
+  }
+
+  // Hides the dialog and waits for a click on the real map
+  grPick(i) {
+    const g = this.gr, map = this.map;
+    g.picking = i;
+    this.grModal.hidden = true;
+    const bar = myvEl('div', 'myv-tfbar');
+    bar.append(myvEl('span', 'myv-tfhint', 'Point ' + (i + 1) + ': click the same spot on the map. Esc to cancel.'));
+    const cancel = myvEl('button', 'myv-btn', 'Cancel');
+    cancel.type = 'button';
+    bar.append(cancel);
+    ['mousedown', 'touchstart', 'dblclick'].forEach(ev => bar.addEventListener(ev, e => e.stopPropagation()));
+    map.getCanvasContainer().append(bar);
+    map.getCanvas().style.cursor = 'crosshair';
+
+    const finish = ok => {
+      map.off('click', onClick);
+      document.removeEventListener('keydown', onKey);
+      bar.remove();
+      map.getCanvas().style.cursor = '';
+      g.picking = -1;
+      g.cancelPick = null;
+      if (!ok && g.gcps[i] && g.gcps[i].lng === null) g.gcps.splice(i, 1);     // a point without a map spot is dropped
+      if (this.gr === g) {
+        this.grModal.hidden = false;
+        this.grRefit();
+        this.grRender();
+      }
+    };
+    const onClick = e => {
+      g.gcps[i].lng = e.lngLat.lng;
+      g.gcps[i].lat = e.lngLat.lat;
+      finish(true);
+    };
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); finish(false); } };
+    cancel.addEventListener('click', () => finish(false));
+    map.on('click', onClick);
+    document.addEventListener('keydown', onKey);
+    g.cancelPick = () => finish(false);
+  }
+
+  grPairs() {
+    const g = this.gr;
+    return g.gcps.map((p, i) => ({ p, i })).filter(o => o.p.lng !== null && o.p.lat !== null).map(o => {
+      const m = myvMerc([o.p.lng, o.p.lat]);
+      return { i: o.i, x: o.p.u * g.aspect, y: o.p.v, X: m.x, Y: m.y, lat: o.p.lat, lng: o.p.lng };
+    });
+  }
+
+  // Fits the chosen transformation, moves the video on the map, works out the errors
+  grRefit() {
+    const g = this.gr;
+    if (!g || !g.ready) return;          // needs the video's size first
+    const pairs = this.grPairs();
+    g.resid = {};
+    g.fit = myvFitTransform(g.method, pairs);
+    let msg = '', bad = false;
+    if (g.fit.error) {
+      msg = g.fit.error;
+      bad = pairs.length >= MYV_METHODS[g.method].min;
+      g.fit = null;
+    } else {
+      const A = g.aspect;
+      const curved = !!MYV_METHODS[g.method].curved;
+      const cs = [[0, 0], [A, 0], [A, 1], [0, 1]].map(([x, y]) => g.fit.f(x, y));
+      const toLL = c => { const ll = new maplibregl.MercatorCoordinate(c[0], c[1], 0).toLngLat(); return [ll.lng, ll.lat]; };
+      let corners = null;
+      if (curved) {
+        // a curved picture has no straight corners; these only serve to find and frame the video
+        corners = cs.map(toLL);
+        if (corners.some(c => !isFinite(c[0]) || !isFinite(c[1]) || Math.abs(c[1]) > MYV_MAX_LAT)) {
+          const lngs = pairs.map(q => q.lng), lats = pairs.map(q => q.lat);
+          const w = Math.min(...lngs), e = Math.max(...lngs), so = Math.min(...lats), no = Math.max(...lats);
+          corners = [[w, no], [e, no], [e, so], [w, so]];
+        }
+      } else {
+        let sign = 0, okShape = true;
+        for (let k = 0; k < 4; k++) {
+          const a0 = cs[k], b0 = cs[(k + 1) % 4], c0 = cs[(k + 2) % 4];
+          const z = (b0[0] - a0[0]) * (c0[1] - b0[1]) - (b0[1] - a0[1]) * (c0[0] - b0[0]);
+          if (!isFinite(z) || z === 0) okShape = false;
+          else if (sign === 0) sign = Math.sign(z);
+          else if (Math.sign(z) !== sign) okShape = false;
+        }
+        corners = okShape && cs.every(c => c[2] > 0) ? cs.map(toLL) : null;
+        if (corners && corners.some(c => !isFinite(c[0]) || !isFinite(c[1]) || Math.abs(c[1]) > MYV_MAX_LAT)) corners = null;
+      }
+      if (!corners) {
+        msg = 'These points fold or twist the picture. Check them, or try a simpler transformation.';
+        bad = true;
+        g.fit = null;
+      } else {
+        g.it.corners = corners;
+        this.applyWarp(g.it, g.fit, A, curved);
+        let sum = 0;
+        pairs.forEach(q => {
+          const pr = g.fit.f(q.x, q.y);
+          const meters = Math.hypot(pr[0] - q.X, pr[1] - q.Y) * 40075016.686 * Math.cos(q.lat * Math.PI / 180);
+          g.resid[q.i] = meters;
+          sum += meters * meters;
+        });
+        const rms = Math.sqrt(sum / pairs.length);
+        msg = pairs.length > MYV_METHODS[g.method].min
+          ? 'RMS error: ' + myvMeters(rms)
+          : 'Exact fit. Add one more point to see how accurate it is.';
+      }
+    }
+    this.grStatus.textContent = msg;
+    this.grStatus.classList.toggle('error', bad);
+    this.grStatus.hidden = !msg;
+    this.grDone.disabled = !g.fit && g.gcps.length > 0 && pairs.length >= MYV_METHODS[g.method].min;
+  }
+
+  // Rebuilds the list of points and the numbered markers (on the picture and on the map)
+  grRender() {
+    const g = this.gr;
+    if (!g) return;
+    g.markers.forEach(m => m.remove());
+    g.markers = [];
+    this.grFrame.querySelectorAll('.myv-gcp').forEach(e => e.remove());
+
+    this.grList.replaceChildren(...g.gcps.map((p, i) => {
+      const row = myvEl('div', 'myv-grrow');
+      const top = myvEl('div', 'myv-grrow-top');
+      top.append(myvEl('span', 'myv-grnum', String(i + 1)));
+      const px = myvEl('span', 'myv-grpx', Math.round(p.u * g.srcW) + ', ' + Math.round(p.v * g.srcH) + ' px');
+      const res = myvEl('span', 'myv-grres', g.resid && g.resid[i] !== undefined ? myvMeters(g.resid[i]) : '');
+      const pick = myvEl('button', 'myv-icon', 'Pick');
+      pick.type = 'button';
+      pick.title = 'Click this point\u2019s place on the map again';
+      pick.addEventListener('click', () => this.grPick(i));
+      const del = myvEl('button', 'myv-icon', '\u2715');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Delete point ' + (i + 1));
+      del.addEventListener('click', () => { g.gcps.splice(i, 1); this.grRefit(); this.grRender(); });
+      top.append(px, res, pick, del);
+
+      const coords = myvEl('div', 'myv-grrow-coords');
+      const mkIn = (key, ph, lo, hi) => {
+        const inp = myvEl('input');
+        inp.type = 'text';
+        inp.inputMode = 'decimal';
+        inp.placeholder = ph;
+        inp.value = p[key] === null ? '' : String(Math.round(p[key] * 1e6) / 1e6);
+        inp.setAttribute('aria-label', ph + ' of point ' + (i + 1));
+        inp.addEventListener('change', () => {
+          const n = Number(inp.value.replace(',', '.'));
+          if (inp.value.trim() === '' || !isFinite(n) || n < lo || n > hi) {
+            inp.value = p[key] === null ? '' : String(Math.round(p[key] * 1e6) / 1e6);
+            return;
+          }
+          p[key] = n;
+          this.grRefit();
+          this.grRender();
+        });
+        return inp;
+      };
+      coords.append(mkIn('lat', 'lat', -MYV_MAX_LAT, MYV_MAX_LAT), mkIn('lng', 'lng', -180, 180));
+      row.append(top, coords);
+
+      // markers
+      const dot = myvEl('div', 'myv-gcp' + (p.lng === null ? ' pending' : ''), String(i + 1));
+      dot.style.left = p.u * 100 + '%';
+      dot.style.top = p.v * 100 + '%';
+      this.grFrame.append(dot);
+      if (p.lng !== null && p.lat !== null) {
+        const md = myvEl('div', 'myv-gcp myv-gcp-map', String(i + 1));
+        g.markers.push(new maplibregl.Marker({ element: md }).setLngLat([p.lng, p.lat]).addTo(this.map));
+      }
+      return row;
+    }));
+    this.grList.hidden = !g.gcps.length;
+  }
+
+  endGeoref(save) {
+    const g = this.gr;
+    if (!g) return;
+    if (g.picking >= 0 && g.cancelPick) g.cancelPick();
+    this.gr = null;
+    g.markers.forEach(m => m.remove());
+    this.grFrame.querySelectorAll('.myv-gcp').forEach(e => e.remove());
+    this.grModal.hidden = true;
+    this.grVideo.removeAttribute('src');
+    this.grVideo.load();
+    URL.revokeObjectURL(g.url);
+    const it = g.it;
+    if (save) {
+      it.gcps = g.gcps.filter(p => p.lng !== null && p.lat !== null).map(p => ({ u: p.u, v: p.v, lng: p.lng, lat: p.lat }));
+      it.gcpMethod = g.method;
+      it.gcpAspect = g.aspect;
+      this.save(it);
+      if (this.editingId === it.id) this.cornersIn.value = myvFormatCorners(it.corners, this.orderSel.value);
+    } else {
+      const nowMesh = !!it._mesh;
+      it.corners = g.orig.corners;
+      it._mesh = g.orig.mesh;
+      if (nowMesh || it._mesh) { this.disposeMedia(it.id); this.drawOne(it); }
+      else this.applyCorners(it);
+    }
+    this.setOpen(this.grWasOpen);
+  }
+
   // ---------- placing by hand ----------
   pxToWorld() {
     const cv = this.map.getCanvas();
@@ -543,6 +1369,13 @@ class MyVideosControl {
   }
 
   startTransform(it, fly) {
+    if (it._mesh) {
+      if (!window.confirm('Moving this video by hand replaces its curved warp with a flat picture. Continue?')) return;
+      it._mesh = null;
+      if (MYV_METHODS[it.gcpMethod] && MYV_METHODS[it.gcpMethod].curved) it.gcpMethod = 'affine';
+      this.disposeMedia(it.id);
+      this.drawOne(it);
+    }
     if (this.tf) this.endTransform(true);
     const map = this.map;
     this.tfWasOpen = !this.panel.hidden;
@@ -1009,6 +1842,39 @@ class MyVideosControl {
     if (this.previewUrl) { URL.revokeObjectURL(this.previewUrl); this.previewUrl = null; }
   }
 
+  // Puts another video file into an existing entry; position, crop, points and dates stay.
+  replaceVideo(it) {
+    const input = myvEl('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      this.say('Checking the video\u2026');
+      this.status.hidden = false;
+      const [oldInfo, newInfo] = await Promise.all([myvProbe(it.blob), myvProbe(file)]);
+      if (!newInfo) { this.say('This browser cannot play that file. Try an H.264 .mp4 or a .webm.', true); return; }
+      if (oldInfo && oldInfo.h && newInfo.h) {
+        const ratio = (newInfo.w / newInfo.h) / (oldInfo.w / oldInfo.h);
+        if (Math.abs(ratio - 1) > 0.02 &&
+            !window.confirm('The new video has a different shape. It will keep the same place on the map, so it may look stretched. Use Georef afterwards to adjust it. Continue?')) {
+          this.say('');
+          return;
+        }
+      }
+      if (this.editingId === it.id) this.resetForm();       // the form still held the old file
+      this.disposeMedia(it.id);
+      const old = this.urls.get(it.id);
+      if (old) { URL.revokeObjectURL(old); this.urls.delete(it.id); }
+      it.blob = file;
+      this.drawOne(it);
+      this.renderList();
+      const saved = await this.save(it);
+      this.say(saved ? 'Video replaced.' : 'Replaced on the map, but it could not be saved (storage full or blocked).', !saved);
+    });
+    input.click();
+  }
+
   // ---------- list ----------
   renderList() {
     this.toggle.textContent = this.items.length ? 'My Videos (' + this.items.length + ')' : 'My Videos';
@@ -1035,6 +1901,11 @@ class MyVideosControl {
     name.title = 'Go to this video';
     name.addEventListener('click', () => this.flyTo(it));
 
+    const geo = myvEl('button', 'myv-icon', 'Georef');
+    geo.type = 'button';
+    geo.title = 'Georeference with control points, like QGIS';
+    geo.addEventListener('click', () => this.startGeoref(it));
+
     const move = myvEl('button', 'myv-icon', 'Move');
     move.type = 'button';
     move.title = 'Move, rotate and resize on the map';
@@ -1050,10 +1921,16 @@ class MyVideosControl {
     del.setAttribute('aria-label', 'Delete ' + it.name);
     del.addEventListener('click', () => this.remove(it));
 
-    row.append(vis, name, move, edit, del);
+    row.append(vis, name, del);
+    const swap = myvEl('button', 'myv-icon', 'Swap');
+    swap.type = 'button';
+    swap.title = 'Replace with another video file (keeps position, crop and points)';
+    swap.addEventListener('click', () => this.replaceVideo(it));
+    const actions = myvEl('div', 'myv-actions');
+    actions.append(geo, move, swap, edit);
     const tl = this.timelineEl(it);
     const block = myvEl('div', 'myv-block');
-    block.append(row, tl);
+    block.append(row, actions, tl);
     return block;
   }
 
@@ -1081,6 +1958,7 @@ class MyVideosControl {
     this.nameIn.value = it.name;
     this.orderSel.value = 'latlng';
     this.cornersIn.value = myvFormatCorners(it.corners, 'latlng');
+    this.editCorners0 = this.cornersIn.value;
     this.opIn.value = String(it.opacity);
     myvFill(this.opIn);
     this.sharpIn.checked = !!it.sharp;
@@ -1096,6 +1974,7 @@ class MyVideosControl {
 
   resetForm() {
     this.editingId = null;
+    this.editCorners0 = null;
     this.fileIn.value = '';
     this.nameIn.value = '';
     this.cornersIn.value = '';
@@ -1139,7 +2018,12 @@ class MyVideosControl {
     if (editing) {
       item = editing;
       item.name = name;
-      item.corners = auto ? this.spawnCorners(crop) : parsed.corners;
+      const untouched = this.editCorners0 !== null && this.cornersIn.value === this.editCorners0 && this.orderSel.value === 'latlng';
+      if (!untouched) {                                  // new corners replace any curved warp
+        item.corners = auto ? this.spawnCorners(crop) : parsed.corners;
+        item._mesh = null;
+        if (MYV_METHODS[item.gcpMethod] && MYV_METHODS[item.gcpMethod].curved) item.gcpMethod = 'affine';
+      }
       item.opacity = opacity;
       item.startDate = startDate;
       item.endDate = endDate;
@@ -1165,8 +2049,10 @@ class MyVideosControl {
     this.resetForm();
     if (!saved) this.say('The video is on the map, but it could not be saved (storage full or blocked). It will be lost when you reload.', true);
     else if (!wasEditing && navigator.storage && navigator.storage.persist) navigator.storage.persist();
-    if (auto) this.startTransform(item, false);
-    else if (!wasEditing) this.flyTo(item);
+    if (auto) {
+      if (this.placeSel.value === 'gcp') this.startGeoref(item);
+      else this.startTransform(item, false);
+    } else if (!wasEditing) this.flyTo(item);
   }
 }
 
