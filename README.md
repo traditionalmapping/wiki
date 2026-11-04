@@ -9,7 +9,7 @@ An interactive map with video panels pinned to places. Videos appear in two spot
 
 ## How to add a video
 
-All videos live in one file: **`js/places.js`**. You don't need to touch any other file.
+Regular linked videos live in **`js/places.js`**. Georeferenced video overlays use a separate workflow described below.
 
 ### 1. Get the coordinates
 
@@ -91,6 +91,31 @@ If the owner of a video disabled embedding, YouTube can't play it in a pop-up. S
 
 > The player needs the site to be opened through `http://` or `https://` (for example GitHub Pages or a local server). Opened directly as a `file://` page, YouTube shows an error instead of the video.
 
+## Add a georeferenced video
+
+Georeferenced videos are video overlays positioned on the map, rather than links in the map panels or the left-side Videos list.
+
+### Try a video in your own browser
+
+1. Click **My Videos** in the bottom-left corner.
+2. Choose a **Video file** and click **Add to map**. The video is kept in this browser only; it is not uploaded or shared.
+3. In the **Georeference** window, click **Add point**, click a recognizable spot in the video, then click the same spot on the map. Add points at several locations across the picture, then click **Done**.
+
+### Add a video to the site for everyone
+
+1. Add and georeference the video as above. In its row under **My Videos**, click **Export** to download the georeference `.json` file.
+2. Put that JSON file in the site, for example `data/library/moscow.json`.
+3. Host the video at an HTTPS URL that allows this site to load it with CORS enabled. Use a browser-compatible H.264 `.mp4` or `.webm`; large video files should be hosted separately rather than committed to the repository.
+4. Add an entry to `MYV_STORAGE` near the top of `js/myvideos.js`, matching the video URL and JSON path:
+
+```js
+const MYV_STORAGE = [
+  { name: 'Moscow 1941', video: 'https://example.com/moscow.mp4', georef: 'data/library/moscow.json' },
+];
+```
+
+Separate multiple entries with commas. After the site is published, visitors can click **My Videos** → **Add video** → **Add to map** to show the overlay.
+
 ## Common mistakes
 
 - **Missing comma** between two `{ ... }` blocks or two videos. Nothing will show up if the file has a syntax error.
@@ -105,6 +130,8 @@ If a place doesn't appear, open the browser console (F12). It prints a warning s
 | File                | Purpose                                              |
 |---------------------|------------------------------------------------------|
 | `js/places.js`      | **The list of places and videos (edit this one)**    |
+| `js/myvideos.js`    | Georeferenced video overlays and their site library  |
+| `data/library/`     | Georeference JSON files for shared video overlays    |
 | `js/markers.js`     | Draws the map panels and the left-side video list    |
 | `js/map.js`         | Map setup and controls                               |
 | `js/menu.js`        | Periods menu                                         |

@@ -17,14 +17,14 @@ const MYV_DB = 'tmw-myvideos';
 const MYV_STORE = 'videos';
 const MYV_MAX_LAT = 85.05;
 
-// ---- Library: georeferenced videos that YOU add to the site (see "Export" in the list) ----
-//  data/library/index.json   a list of the .json files, e.g.  ["berlin-1945.json", "kursk.json"]
-//  data/library/<name>.json  one file per video, made with the "Export" button
-//  The video file itself goes where the "video" line of its .json points. Set the base address
-//  below to your Cloudflare R2 address (or keep the folder for small videos kept in the site).
-const MYV_LIBRARY_INDEX = 'data/library/index.json';
-const MYV_LIBRARY_DIR = 'data/library/';
-const MYV_LIBRARY_VIDEO_BASE = 'data/library/videos/';   // e.g. 'https://pub-xxxx.r2.dev/videos/'
+// ---- Storage of georeferenced videos (opened with the "Add video" button) ----
+//  One block per video.
+//    video:  link to the video file (big files: Cloudflare R2, which must allow this site through CORS)
+//    georef: the .json made with the Export button of My Videos; keep it in the site files,
+//            e.g. 'data/library/moscow.json' (a full link also works)
+const MYV_STORAGE = [
+  { name: 'Moscow 1941', video: 'https://pub-0b66549169434e89be867e91db96609a.r2.dev/The%20War%20of%20Annihilation%20-%20Battle%20of%20Moscow%20_%20%D0%92%D0%BE%D0%B9%D0%BD%D0%B0%20%D0%BD%D0%B0%20%D0%A3%D0%BD%D0%B8%D1%87%D1%82%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D0%B5%20-%20%D0%91%D0%B8%D1%82%D0%B2%D0%B0%20%D0%B7%D0%B0%20%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D1%83_1080p.mp4', georef: 'data/library/moscow.json' },
+];
 
 // Checks that a video link really loads as a video (with CORS, which the map needs to draw it)
 function myvCanPlayUrl(url) {
@@ -504,52 +504,21 @@ class MyVideosControl {
     });
     // Videos added to the site itself (data/library), visible to everyone
     this.libWrap = myvEl('div', 'myv-libwrap');
-    this.libWrap.append(myvEl('div', 'myv-label', 'Library'),
+    this.libWrap.append(myvEl('div', 'myv-label', 'Videos from the storage'),
       myvEl('div', 'myv-hint', 'Tick a video to show it on the map, or click its preview to watch it.'));
     this.libEl = myvEl('div', 'myv-list');
     this.libWrap.append(this.libEl);
 
-    // "Add video": paste the link to the video and the link to its georeference (.json) file
+    // "Add video" opens the storage: the list of ready georeferenced videos (MYV_STORAGE)
     const addToggle = this.addToggle = myvEl('button', 'myv-btn', 'Add video');
     addToggle.type = 'button';
-    addToggle.addEventListener('click', () => {
-      this.addForm.hidden = !this.addForm.hidden;
-      if (!this.addForm.hidden) this.addVideoIn.focus();
-    });
-    const addForm = this.addForm = myvEl('div', 'myv-form');
-    addForm.hidden = true;
-    const f1 = myvEl('label', 'myv-field');
-    f1.append(myvEl('span', 'myv-label', 'Video link'));
-    this.addVideoIn = myvEl('input');
-    this.addVideoIn.type = 'text';
-    this.addVideoIn.placeholder = 'https://\u2026/video.mp4';
-    f1.append(this.addVideoIn);
-    const f2 = myvEl('label', 'myv-field');
-    f2.append(myvEl('span', 'myv-label', 'Georeference link (.json)'));
-    this.addJsonIn = myvEl('input');
-    this.addJsonIn.type = 'text';
-    this.addJsonIn.placeholder = 'https://\u2026/video.json';
-    f2.append(this.addJsonIn);
-    const addRow = myvEl('div', 'myv-row');
-    const addGo = this.addGo = myvEl('button', 'myv-btn myv-primary', 'Add to map');
-    addGo.type = 'button';
-    addGo.addEventListener('click', () => this.addFromLinks());
-    const addCancel = myvEl('button', 'myv-btn', 'Cancel');
-    addCancel.type = 'button';
-    addCancel.addEventListener('click', () => { this.addForm.hidden = true; this.libSay(''); });
-    addRow.append(addGo, addCancel);
-    this.libStatus = myvEl('div', 'myv-status');
-    this.libStatus.hidden = true;
-    addForm.append(f1, f2, addRow, this.libStatus);
-    [this.addVideoIn, this.addJsonIn].forEach(i => i.addEventListener('keydown', e => {
-      if (e.key === 'Enter') this.addFromLinks();
-    }));
+    addToggle.addEventListener('click', () => this.openStorage());
     const addWrap = myvEl('div', 'myv-addwrap');
     addWrap.append(addToggle);
-    this.libWrap.append(addWrap, addForm);
+    this.libWrap.append(addWrap);
     panel.append(this.libWrap);
 
-    panel.append(myvEl('div', 'myv-hint', 'Your own files stay in this browser only and nobody else can see them. To put a video on the site for everyone, use Export.'));
+    panel.append(myvEl('div', 'myv-hint', 'Your own files stay in this browser only and nobody else can see them.'));
 
     this.listEl = myvEl('div', 'myv-list');
     panel.append(this.listEl);
@@ -650,6 +619,7 @@ class MyVideosControl {
     this.hideCropEditor();
     this.cropModal.remove();
     if (this.pm) this.pm.remove();
+    if (this.st) this.st.remove();
     this.panel.remove();
     this.el.remove();
   }
@@ -679,37 +649,6 @@ class MyVideosControl {
     }
     this.renderList();
     this.redrawAll();
-    this.loadLibrary();
-  }
-
-  // Reads data/library/index.json and every .json it lists. A missing index just means "no library yet".
-  async loadLibrary() {
-    if (location.protocol === 'file:') return;
-    let names;
-    try {
-      const res = await fetch(MYV_LIBRARY_INDEX);
-      if (!res.ok) return;
-      names = await res.json();
-    } catch (e) { return; }
-    if (!Array.isArray(names)) return;
-    const files = await Promise.all(names.map(async name => {
-      try {
-        name = String(name);
-        const link = /^https?:\/\//i.test(name) ? name : MYV_LIBRARY_DIR + name;   // a file name, or a full link
-        const res = await fetch(link);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return myvFromLibrary(link.split(/[?#]/)[0].split('/').pop(), await res.json());
-      } catch (e) {
-        console.warn('Library: could not read ' + name, e);
-        return null;
-      }
-    }));
-    files.filter(Boolean).forEach(it => {
-      if (this.items.some(x => x.id === it.id)) return;
-      this.items.push(it);
-      this.prepareWarp(it);
-    });
-    this.renderList();
   }
 
   // The address a video plays from: a library video's own address, or the file kept in this browser
@@ -1770,6 +1709,7 @@ class MyVideosControl {
     this.toggle.textContent = own.length ? 'My Videos (' + own.length + ')' : 'My Videos';
     this.listEl.hidden = !own.length;
     lib.sort((a, b) => (a.created || 0) - (b.created || 0));
+    this.libEl.hidden = !lib.length;
     this.ui.clear();
     this.listEl.replaceChildren(...own.map(it => this.rowEl(it)));
     this.libEl.replaceChildren(...lib.map(it => this.rowEl(it)));
@@ -1904,73 +1844,138 @@ class MyVideosControl {
     }, 280);
   }
 
-  // ---------- Add video (links) ----------
-  libSay(text, isError) {
-    this.libStatus.textContent = text || '';
-    this.libStatus.hidden = !text;
-    this.libStatus.classList.toggle('error', !!isError);
+  // ---------- the storage (list of ready georeferenced videos) ----------
+  buildStorage() {
+    const modal = this.st = myvEl('div', 'vmodal myv-storage');
+    modal.hidden = true;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Video storage');
+    const panel = myvEl('div', 'vmodal-panel');
+    const head = myvEl('div', 'vmodal-head');
+    head.append(myvEl('span', 'vmodal-title', 'Video storage'), myvEl('span', 'vmodal-count', String(MYV_STORAGE.length)));
+    const close = this.stClose = myvEl('button', 'vmodal-close', '\u2715');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close');
+    close.addEventListener('click', () => this.closeStorage());
+    this.stList = myvEl('div', 'vmodal-list');
+    this.stStatus = myvEl('div', 'myv-status');
+    this.stStatus.hidden = true;
+    panel.append(head, close, this.stList, this.stStatus);
+    modal.append(panel);
+    modal.addEventListener('click', e => { if (e.target === modal) this.closeStorage(); });
+    document.body.append(modal);
   }
 
-  async addFromLinks() {
-    const toUrl = text => {
-      try { const u = new URL(text, document.baseURI); return /^https?:$/.test(u.protocol) ? u : null; }
-      catch (e) { return null; }
-    };
-    const vu = toUrl(this.addVideoIn.value.trim()), ju = toUrl(this.addJsonIn.value.trim());
-    if (!this.addVideoIn.value.trim() || !this.addJsonIn.value.trim() || !vu || !ju) {
-      this.libSay('Paste both links (they start with https://).', true);
+  storageSay(text, isError) {
+    this.stStatus.textContent = text || '';
+    this.stStatus.hidden = !text;
+    this.stStatus.classList.toggle('error', !!isError);
+  }
+
+  openStorage() {
+    if (!this.st) this.buildStorage();
+    this.storageSay('');
+    this.renderStorage();
+    this.st.hidden = false;
+    requestAnimationFrame(() => this.st.classList.add('open'));
+    this.stClose.focus();
+    this.stKey = e => { if (e.key === 'Escape' && !(this.pm && !this.pm.hidden)) this.closeStorage(); };
+    document.addEventListener('keydown', this.stKey);
+  }
+
+  closeStorage() {
+    if (!this.st || this.st.hidden) return;
+    this.st.classList.remove('open');
+    document.removeEventListener('keydown', this.stKey);
+    setTimeout(() => { if (!this.st.classList.contains('open')) this.st.hidden = true; }, 280);
+  }
+
+  renderStorage() {
+    const abs = link => { try { return new URL(link, document.baseURI).href; } catch (e) { return ''; } };
+    if (!MYV_STORAGE.length) {
+      this.stList.replaceChildren(myvEl('div', 'vpanel-empty', 'No videos in the storage yet.'));
       return;
     }
-    if (this.items.some(x => x.videoUrl === vu.href)) { this.libSay('That video is already in the list.', true); return; }
-    this.addGo.disabled = true;
-    this.libSay('Checking the links\u2026');
-    try {
-      let data;
-      try {
-        const res = await fetch(ju.href);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
-      } catch (e) {
-        this.libSay('Could not read the georeference file. Check the link, and that its storage allows this site.', true);
-        return;
-      }
-      const it = myvFromLibrary(ju.pathname.split('/').pop() || 'video.json', data, vu.href);
-      if (!it) { this.libSay('That file is not a georeferenced video file (made with Export).', true); return; }
-      if (!(await myvCanPlayUrl(vu.href))) {
-        this.libSay('The video did not load. Check the link (an H.264 .mp4 or a .webm) and that its storage allows this site.', true);
-        return;
-      }
-      it.id = 'link-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      it.linked = true;
-      it.visible = true;
-      it.created = Date.now();
-      it._flown = true;
-      this.items.push(it);
-      this.prepareWarp(it);
-      this.drawOne(it);
-      await this.save(it);
-      this.renderList();
-      this.flyTo(it);
-      this.addVideoIn.value = '';
-      this.addJsonIn.value = '';
-      this.addForm.hidden = true;
-      this.libSay('');
-    } finally {
-      this.addGo.disabled = false;
-    }
+    this.stList.replaceChildren(...MYV_STORAGE.map((entry, i) => {
+      const videoUrl = abs(entry.video);
+      const name = entry.name || decodeURIComponent((videoUrl.split(/[?#]/)[0].split('/').pop() || 'Video').replace(/\.[^.]+$/, ''));
+      const added = this.items.find(x => x.linked && x.videoUrl === videoUrl);
+
+      const row = myvEl('div', 'vrow');
+      row.style.setProperty('--i', i);
+      const info = myvEl('div', 'vrow-info');
+      const btn = myvEl('button', 'myv-btn' + (added ? '' : ' myv-primary'), added ? 'Remove from map' : 'Add to map');
+      btn.type = 'button';
+      btn.style.marginTop = '8px';
+      btn.addEventListener('click', async () => {
+        if (added) { await this.remove(added, true); this.renderStorage(); return; }
+        btn.disabled = true;
+        btn.textContent = 'Adding\u2026';
+        const ok = await this.addFromStorage(entry, name, videoUrl);
+        if (ok) this.closeStorage();
+        else { btn.disabled = false; btn.textContent = 'Add to map'; }
+      });
+      info.append(myvEl('span', 'vrow-title', name), btn);
+
+      const thumb = myvEl('button', 'vrow-thumb myv-vthumb');
+      thumb.type = 'button';
+      thumb.title = 'Play';
+      thumb.setAttribute('aria-label', 'Play ' + name);
+      const v = myvEl('video');
+      v.muted = true;
+      v.playsInline = true;
+      v.preload = 'metadata';
+      v.src = videoUrl.split('#')[0] + '#t=0.1';              // first frame as the preview
+      thumb.append(v);
+      thumb.addEventListener('click', () => this.openPlayer({ name, videoUrl }));
+      row.append(info, thumb);
+      return row;
+    }));
   }
 
-  // Downloads the position of a video as a .json, to put in data/library/ (see the top of this file)
+  // Reads the georeference file, checks the video and puts it on the map. Returns true when done.
+  async addFromStorage(entry, name, videoUrl) {
+    this.storageSay('Loading\u2026');
+    let data;
+    try {
+      const res = await fetch(new URL(entry.georef, document.baseURI).href);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+    } catch (e) {
+      this.storageSay('Could not read the georeference file of "' + name + '".', true);
+      return false;
+    }
+    const it = myvFromLibrary(String(entry.georef).split(/[?#]/)[0].split('/').pop() || 'video.json', data, videoUrl);
+    if (!it) { this.storageSay('The georeference file of "' + name + '" is not valid.', true); return false; }
+    if (!(await myvCanPlayUrl(videoUrl))) {
+      this.storageSay('The video "' + name + '" did not load (an H.264 .mp4 or a .webm, and its storage must allow this site).', true);
+      return false;
+    }
+    it.id = 'link-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    it.name = name;
+    it.linked = true;
+    it.visible = true;
+    it.created = Date.now();
+    it._flown = true;
+    this.items.push(it);
+    this.prepareWarp(it);
+    this.drawOne(it);
+    await this.save(it);
+    this.renderList();
+    this.flyTo(it);
+    this.storageSay('');
+    return true;
+  }
+
+  // Downloads the position of a video as a .json (its link goes in MYV_STORAGE at the top of this file)
   exportItem(it) {
-    const type = (it.blob && it.blob.type) || '';
-    const ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogv' : 'mp4';
     const slug = String(it.name).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || ('video-' + it.id);
     const data = {
       format: 'tmw-georeferenced-video',
       version: 1,
       name: it.name,
-      video: MYV_LIBRARY_VIDEO_BASE + slug + '.' + ext,
       corners: it.corners,
       opacity: it.opacity,
       startDate: it.startDate || '',
@@ -1992,8 +1997,8 @@ class MyVideosControl {
     this.say('Saved ' + slug + '.json');
   }
 
-  async remove(it) {
-    if (!window.confirm('Delete "' + it.name + '" from this browser?')) return;
+  async remove(it, noConfirm) {
+    if (!noConfirm && !window.confirm((it.linked ? 'Remove "' : 'Delete "') + it.name + (it.linked ? '" from the map?' : '" from this browser?'))) return;
     const map = this.map;
     try {
       if (map.getLayer(myvLayerId(it.id))) map.removeLayer(myvLayerId(it.id));

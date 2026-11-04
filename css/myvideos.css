@@ -431,3 +431,10 @@
 .myv-thumb video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .myv-thumb:hover::after { opacity: 1; }
 .myv-pmodal .pmodal-frame video { display: block; width: 100%; height: 100%; background: #000; }
+
+/* Video storage dialog (opened with "Add video"): reuses the look of the video list dialog */
+.myv-vthumb { padding: 0; border: 0; cursor: pointer; }
+.vrow-thumb video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; transition: transform .35s ease; }
+.vrow:hover .vrow-thumb video { transform: scale(1.06); }
+.myv-storage .myv-status { margin-top: 10px; }
+.myv-storage .vpanel-empty { padding: 24px 8px; }
