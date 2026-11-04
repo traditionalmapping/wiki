@@ -52,7 +52,7 @@ class BordersControl {
     this.cache = {};      // year -> loaded GeoJSON
   }
 
-  // The year is chosen with the separate YearControl (always visible, works with borders OFF).
+  // The year is chosen with the separate YearSlider (the date slider, always visible, works with borders OFF).
   get year() { return selectedBorderYear; }
 
   onAdd() {
@@ -222,40 +222,48 @@ class BordersControl {
   }
 }
 
-// ---- The year picker: its own control, always visible, independent of the borders button ----
-class YearControl {
+// ---- The date slider: bottom center, always visible, independent of the borders button ----
+class YearSlider {
   constructor(onChange) { this.onChange = onChange; }
 
-  onAdd() {
+  mount() {
     const el = this.el = document.createElement('div');
-    el.className = 'maplibregl-ctrl history borders-years-ctrl';
-
-    const panel = document.createElement('div');
-    panel.className = 'history-panel';
+    el.className = 'timeline';
+    el.setAttribute('role', 'group');
+    el.setAttribute('aria-label', 'Situation date');
 
     const note = this.note = document.createElement('div');
-    note.className = 'borders-note';
+    note.className = 'timeline-note';
 
-    const years = document.createElement('div');
-    years.className = 'borders-years';
-    this.yearButtons = BORDER_YEARS.map(y => {
+    const last = BORDER_YEARS.length - 1;
+    const slider = this.slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'timeline-slider';
+    slider.min = 0;
+    slider.max = last;
+    slider.step = 1;
+    slider.setAttribute('aria-label', 'Situation date');
+    slider.addEventListener('input', () => this.setYear(BORDER_YEARS[Number(slider.value)]));
+
+    // Year labels under the slider; clicking one jumps to that date
+    const ticks = document.createElement('div');
+    ticks.className = 'timeline-ticks';
+    this.tickButtons = BORDER_YEARS.map((y, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'borders-year';
+      b.className = 'timeline-tick';
       b.textContent = y;
       b.dataset.year = y;
+      b.style.setProperty('--pos', last ? i / last : 0);
       b.addEventListener('click', () => this.setYear(y));
-      years.append(b);
+      ticks.append(b);
       return b;
     });
 
-    panel.append(note, years);
-    el.append(panel);
+    el.append(note, slider, ticks);
+    document.body.append(el);
     this.refresh();
-    return el;
   }
-
-  onRemove() { this.el.remove(); }
 
   setYear(year) {
     if (year === selectedBorderYear) return;
@@ -266,7 +274,8 @@ class YearControl {
   }
 
   refresh() {
-    this.yearButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === selectedBorderYear));
+    this.slider.value = BORDER_YEARS.indexOf(selectedBorderYear);
+    this.tickButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === selectedBorderYear));
     const date = document.createElement('strong');
     date.textContent = borderDate(selectedBorderYear);
     this.note.replaceChildren('Situation on ', date);
@@ -276,8 +285,8 @@ class YearControl {
 function initBorders(map) {
   const control = new BordersControl(map);
   map.addControl(control, 'bottom-left');
-  // Added after the Borders button, so it sits just above it (later controls stack upward).
-  map.addControl(new YearControl(() => control.onYear()), 'bottom-left');
+  // The date slider lives at the bottom center of the screen (see .timeline in css/style.css).
+  new YearSlider(() => control.onYear()).mount();
   onStyleReady(() => control.apply()); // keep the outline when the base map changes
 
   // Safety net: some base map switches update the style in place and never fire

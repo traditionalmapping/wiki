@@ -76,6 +76,8 @@ html, body { margin: 0; height: 100%; background: #0e0e0e; }
 /* Top-left controls sit in one row: Dark/OSM, then search */
 .maplibregl-ctrl-top-left { display: flex; align-items: flex-start; }
 .maplibregl-ctrl-top-left .maplibregl-ctrl { float: none; clear: none; }
+/* The search results drop down over the video list panel (z-index 4), so this row must sit above it */
+.maplibregl-ctrl-top-left { z-index: 5; }
 .search input {
   box-sizing: border-box;
   width: 100%;
@@ -962,3 +964,79 @@ body.menu-open .crosshair { visibility: hidden; }
 }
 .pmodal-blocked-btn:hover { background: #e6e6e6; }
 .pmodal-blocked-btn:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+
+/* ---------- Date slider for the situation (bottom center) ---------- */
+.timeline {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 4;
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 540px));
+  padding: 10px 16px 8px;
+  background: rgba(28, 28, 28, .9);
+  border: 1px solid #333;
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ddd;
+  font: 13px/1 system-ui, sans-serif;
+}
+body.menu-open .timeline { visibility: hidden; }
+.timeline-note { margin-bottom: 8px; text-align: center; font-size: 12px; color: #999; }
+.timeline-note strong { color: #fff; }
+
+.timeline-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.timeline-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #3a3a3a; }
+.timeline-slider::-moz-range-track { height: 4px; border-radius: 2px; background: #3a3a3a; }
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 16px; height: 16px; margin-top: -6px;
+  border: 2px solid #1c1c1c; border-radius: 50%;
+  background: #c9a24b;
+}
+.timeline-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 16px; height: 16px;
+  border: 2px solid #1c1c1c; border-radius: 50%;
+  background: #c9a24b;
+}
+.timeline-slider:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 4px; border-radius: 8px; }
+
+/* Year labels sit exactly under the slider stops (8px = half the thumb width) */
+.timeline-ticks { position: relative; height: 20px; margin-top: 6px; }
+.timeline-tick {
+  position: absolute;
+  top: 0;
+  left: calc(8px + (100% - 16px) * var(--pos));
+  transform: translateX(-50%);
+  padding: 3px 4px;
+  border: 0;
+  background: transparent;
+  color: #888;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.timeline-tick:hover { color: #fff; }
+.timeline-tick.active { color: #c9a24b; font-weight: 600; }
+.timeline-tick:focus-visible { outline: 2px solid #6aa9ff; border-radius: 4px; }
+
+/* Narrow screens: sit above the bottom-left buttons instead of beside them */
+@media (max-width: 1000px) {
+  .timeline {
+    bottom: calc(var(--bl-height, 90px) + 14px);
+    width: min(520px, calc(100vw - 24px));
+  }
+}

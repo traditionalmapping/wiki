@@ -313,16 +313,6 @@
 .myv-cropsum { margin: 0; }
 
 /* ---------- Placing a video by hand (move / rotate / resize on the map) ---------- */
-.myv-tf { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 5; }
-.myv-tf-poly { fill: rgba(201, 162, 75, .08); stroke: #c9a24b; stroke-width: 2; pointer-events: all; cursor: move; }
-.myv-tf-line { stroke: #c9a24b; stroke-width: 1.5; }
-.myv-tf-h { fill: #e0bc62; stroke: #161616; stroke-width: 2; pointer-events: all; }
-.myv-tf-h.h-n, .myv-tf-h.h-s { cursor: ns-resize; }
-.myv-tf-h.h-e, .myv-tf-h.h-w { cursor: ew-resize; }
-.myv-tf-h.h-nw, .myv-tf-h.h-se { cursor: nwse-resize; }
-.myv-tf-h.h-ne, .myv-tf-h.h-sw { cursor: nesw-resize; }
-.myv-tf-rot { cursor: grab; }
-.myv-tf-rot:active { cursor: grabbing; }
 .myv-tfbar {
   position: absolute;
   left: 50%;
@@ -426,3 +416,18 @@
 
 .myv-actions { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 6px 6px 28px; }
 .myv-actions .myv-icon { padding: 2px 7px; color: #b5b5bd; }
+
+/* ---------- Library (videos added to the site) ---------- */
+.myv-libwrap { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #2a2a2a; }
+.myv-libwrap[hidden] { display: none; }
+.myv-libwrap .myv-list { margin-bottom: 0; }
+
+.myv-addwrap { margin-top: 8px; }
+.myv-libwrap .myv-form { margin-top: 8px; }
+.myv-libwrap .myv-form[hidden] { display: none; }
+
+/* Preview in the library list: click it to open the mini player */
+.myv-thumb { position: relative; width: 64px; height: 36px; padding: 0; border: 0; cursor: pointer; }
+.myv-thumb video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.myv-thumb:hover::after { opacity: 1; }
+.myv-pmodal .pmodal-frame video { display: block; width: 100%; height: 100%; background: #000; }

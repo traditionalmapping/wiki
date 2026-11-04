@@ -3,7 +3,8 @@
 //
 //  Lets every visitor pin THEIR OWN video file onto the map:
 //    1. choose a video file from the computer,
-//    2. type the coordinates of its four corners,
+//    2. georeference it with control points, like in the QGIS Georeferencer
+//       (click a spot on the video, then the same spot on the map),
 //    3. the video plays on the map at that place.
 //
 //  Nothing is uploaded anywhere. The file and the coordinates are stored in the
@@ -15,6 +16,54 @@
 const MYV_DB = 'tmw-myvideos';
 const MYV_STORE = 'videos';
 const MYV_MAX_LAT = 85.05;
+
+// ---- Library: georeferenced videos that YOU add to the site (see "Export" in the list) ----
+//  data/library/index.json   a list of the .json files, e.g.  ["berlin-1945.json", "kursk.json"]
+//  data/library/<name>.json  one file per video, made with the "Export" button
+//  The video file itself goes where the "video" line of its .json points. Set the base address
+//  below to your Cloudflare R2 address (or keep the folder for small videos kept in the site).
+const MYV_LIBRARY_INDEX = 'data/library/index.json';
+const MYV_LIBRARY_DIR = 'data/library/';
+const MYV_LIBRARY_VIDEO_BASE = 'data/library/videos/';   // e.g. 'https://pub-xxxx.r2.dev/videos/'
+
+// Checks that a video link really loads as a video (with CORS, which the map needs to draw it)
+function myvCanPlayUrl(url) {
+  return new Promise(resolve => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'metadata';
+    v.crossOrigin = 'anonymous';
+    const done = ok => { clearTimeout(timer); v.removeAttribute('src'); v.load(); resolve(ok); };
+    const timer = setTimeout(() => done(false), 15000);
+    v.addEventListener('loadedmetadata', () => done(true), { once: true });
+    v.addEventListener('error', () => done(false), { once: true });
+    v.src = url;
+  });
+}
+
+// Turns one library .json into the same kind of item the browser-stored videos use
+function myvFromLibrary(file, d, videoOverride) {
+  const video = videoOverride || (d && d.video);
+  if (!d || typeof video !== 'string' || !Array.isArray(d.corners) || d.corners.length !== 4) return null;
+  if (!d.corners.every(c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite))) return null;
+  return {
+    id: 'lib-' + file.replace(/\.json$/i, '').replace(/[^a-z0-9_-]+/gi, '-'),
+    library: true,
+    visible: false,                                   // nothing downloads until someone ticks it
+    name: String(d.name || file.replace(/\.json$/i, '')),
+    videoUrl: new URL(video, document.baseURI).href,
+    corners: d.corners,
+    opacity: Math.min(1, Math.max(0.1, Number(d.opacity) || 1)),
+    startDate: d.startDate || '',
+    endDate: d.endDate || '',
+    crop: d.crop || { x: 0, y: 0, w: 1, h: 1 },
+    sharp: !!d.sharp,
+    gcps: Array.isArray(d.gcps) ? d.gcps : [],
+    gcpMethod: d.gcpMethod || 'affine',
+    gcpAspect: d.gcpAspect || 1,
+    created: 0
+  };
+}
 
 const myvSrcId = id => 'myvid-' + id;
 const myvLayerId = id => 'myvid-l-' + id;
@@ -57,33 +106,6 @@ function myvRun(db, mode, fn) {
   });
 }
 
-// ---------- coordinates ----------
-// Text with 4 points (8 numbers) or 2 points (4 numbers: top-left and bottom-right)
-// -> { corners: [[lng,lat] x4] } in the order MapLibre wants
-//    (top-left, top-right, bottom-right, bottom-left), or { error }.
-function myvParseCorners(text, order) {
-  const nums = (String(text).match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || []).map(Number);
-  if (nums.length !== 8 && nums.length !== 4) {
-    return { error: 'Enter 4 points (top-left, top-right, bottom-right, bottom-left) or 2 points (top-left, bottom-right). Found ' + nums.length / 2 + ' point(s).' };
-  }
-  const pts = [];
-  for (let i = 0; i < nums.length; i += 2) {
-    const a = nums[i], b = nums[i + 1];
-    pts.push(order === 'lnglat' ? [a, b] : [b, a]);          // always stored as [lng, lat]
-  }
-  for (let i = 0; i < pts.length; i++) {
-    const [lng, lat] = pts[i];
-    if (!isFinite(lng) || !isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > MYV_MAX_LAT) {
-      return { error: 'Point ' + (i + 1) + ' is outside the map. Check the order setting (lat, lng or lng, lat).' };
-    }
-  }
-  if (pts.length === 2) {
-    const [tl, br] = pts;
-    return { corners: [tl, [br[0], tl[1]], br, [tl[0], br[1]]] };
-  }
-  return { corners: pts };
-}
-
 // metres -> "320 m" / "1.4 km"
 function myvMeters(m) {
   if (!isFinite(m)) return '';
@@ -121,19 +143,6 @@ function myvCornersFromT(T) {
     const ll = new maplibregl.MercatorCoordinate(T.cx + lx * cos - ly * sin, T.cy + lx * sin + ly * cos, 0).toLngLat();
     return [ll.lng, ll.lat];
   });
-}
-
-function myvTFromCorners(corners) {
-  const m = corners.map(myvMerc);
-  const ux = m[1].x - m[0].x, uy = m[1].y - m[0].y, vx = m[3].x - m[0].x, vy = m[3].y - m[0].y;
-  return { cx: (m[0].x + m[2].x) / 2, cy: (m[0].y + m[2].y) / 2, w: Math.hypot(ux, uy), h: Math.hypot(vx, vy), a: Math.atan2(uy, ux) };
-}
-
-function myvSvg(name, attrs, cls) {
-  const e = document.createElementNS('http://www.w3.org/2000/svg', name);
-  Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k]));
-  if (cls) e.setAttribute('class', cls);
-  return e;
 }
 
 // ---------- georeferencing with control points (like the QGIS Georeferencer) ----------
@@ -428,11 +437,6 @@ class MyvMeshLayer {
   }
 }
 
-function myvFormatCorners(corners, order) {
-  const r = n => Math.round(n * 1e6) / 1e6;
-  return corners.map(c => order === 'lnglat' ? r(c[0]) + ', ' + r(c[1]) : r(c[1]) + ', ' + r(c[0])).join('\n');
-}
-
 // Checks that the browser can play the file; gives { w, h } (the video's size) or null.
 function myvProbe(file) {
   return new Promise(resolve => {
@@ -498,7 +502,54 @@ class MyVideosControl {
     panel.addEventListener('keydown', e => {
       if (e.key === 'Escape') { this.setOpen(false); this.toggle.focus(); }
     });
-    panel.append(myvEl('div', 'myv-hint', 'Your files stay in this browser only. Nothing is uploaded and nobody else can see them.'));
+    // Videos added to the site itself (data/library), visible to everyone
+    this.libWrap = myvEl('div', 'myv-libwrap');
+    this.libWrap.append(myvEl('div', 'myv-label', 'Library'),
+      myvEl('div', 'myv-hint', 'Tick a video to show it on the map, or click its preview to watch it.'));
+    this.libEl = myvEl('div', 'myv-list');
+    this.libWrap.append(this.libEl);
+
+    // "Add video": paste the link to the video and the link to its georeference (.json) file
+    const addToggle = this.addToggle = myvEl('button', 'myv-btn', 'Add video');
+    addToggle.type = 'button';
+    addToggle.addEventListener('click', () => {
+      this.addForm.hidden = !this.addForm.hidden;
+      if (!this.addForm.hidden) this.addVideoIn.focus();
+    });
+    const addForm = this.addForm = myvEl('div', 'myv-form');
+    addForm.hidden = true;
+    const f1 = myvEl('label', 'myv-field');
+    f1.append(myvEl('span', 'myv-label', 'Video link'));
+    this.addVideoIn = myvEl('input');
+    this.addVideoIn.type = 'text';
+    this.addVideoIn.placeholder = 'https://\u2026/video.mp4';
+    f1.append(this.addVideoIn);
+    const f2 = myvEl('label', 'myv-field');
+    f2.append(myvEl('span', 'myv-label', 'Georeference link (.json)'));
+    this.addJsonIn = myvEl('input');
+    this.addJsonIn.type = 'text';
+    this.addJsonIn.placeholder = 'https://\u2026/video.json';
+    f2.append(this.addJsonIn);
+    const addRow = myvEl('div', 'myv-row');
+    const addGo = this.addGo = myvEl('button', 'myv-btn myv-primary', 'Add to map');
+    addGo.type = 'button';
+    addGo.addEventListener('click', () => this.addFromLinks());
+    const addCancel = myvEl('button', 'myv-btn', 'Cancel');
+    addCancel.type = 'button';
+    addCancel.addEventListener('click', () => { this.addForm.hidden = true; this.libSay(''); });
+    addRow.append(addGo, addCancel);
+    this.libStatus = myvEl('div', 'myv-status');
+    this.libStatus.hidden = true;
+    addForm.append(f1, f2, addRow, this.libStatus);
+    [this.addVideoIn, this.addJsonIn].forEach(i => i.addEventListener('keydown', e => {
+      if (e.key === 'Enter') this.addFromLinks();
+    }));
+    const addWrap = myvEl('div', 'myv-addwrap');
+    addWrap.append(addToggle);
+    this.libWrap.append(addWrap, addForm);
+    panel.append(this.libWrap);
+
+    panel.append(myvEl('div', 'myv-hint', 'Your own files stay in this browser only and nobody else can see them. To put a video on the site for everyone, use Export.'));
 
     this.listEl = myvEl('div', 'myv-list');
     panel.append(this.listEl);
@@ -527,33 +578,6 @@ class MyVideosControl {
     this.nameIn.maxLength = 80;
     this.nameIn.placeholder = 'optional';
     nameLabel.append(this.nameIn);
-
-    const placeField = myvEl('label', 'myv-field');
-    placeField.append(myvEl('span', 'myv-label', 'Placement'));
-    this.placeSel = myvEl('select');
-    [['gcp', 'Georeference with points (like QGIS)'], ['hand', 'Place by hand on the map']].forEach(([v, t]) => {
-      const o = myvEl('option', '', t);
-      o.value = v;
-      this.placeSel.append(o);
-    });
-    placeField.append(this.placeSel);
-
-    const cornerLabel = myvEl('div', 'myv-field');
-    const cornerHead = myvEl('div', 'myv-row');
-    cornerHead.append(myvEl('span', 'myv-label', 'Corners (optional)'));
-    this.orderSel = myvEl('select');
-    [['latlng', 'lat, lng'], ['lnglat', 'lng, lat']].forEach(([v, t]) => {
-      const o = myvEl('option', '', t);
-      o.value = v;
-      this.orderSel.append(o);
-    });
-    cornerHead.append(this.orderSel);
-    this.cornersIn = myvEl('textarea');
-    this.cornersIn.rows = 5;
-    this.cornersIn.spellcheck = false;
-    this.cornersIn.placeholder = 'Leave empty to use the placement above.\n\nOr type points, one per line:\ntop-left, top-right, bottom-right, bottom-left\n(or 2 points: top-left and bottom-right)';
-    cornerLabel.append(cornerHead, this.cornersIn);
-    cornerLabel.append(myvEl('div', 'myv-hint', 'Leave this empty to use the placement above. If you cropped the video, the corners are those of the cropped part.'));
 
     const dateField = myvEl('div', 'myv-field');
     dateField.append(myvEl('span', 'myv-label', 'Timeline (optional)'));
@@ -608,7 +632,7 @@ class MyVideosControl {
     this.status = myvEl('div', 'myv-status');
     this.status.hidden = true;
 
-    form.append(fileLabel, cropBox, nameLabel, placeField, cornerLabel, dateField, opLabel, sharpLabel, buttons, this.status);
+    form.append(fileLabel, cropBox, nameLabel, dateField, opLabel, sharpLabel, myvEl('div', 'myv-hint', 'After you add a video, a window opens where you georeference it with control points, like in QGIS.'), buttons, this.status);
     panel.append(form);
 
     el.append(toggle);
@@ -619,13 +643,13 @@ class MyVideosControl {
   }
 
   onRemove() {
-    if (this.tf) this.endTransform(false);
     if (this.gr) this.endGeoref(false);
     this.grModal.remove();
     this.media.forEach((m, id) => this.disposeMedia(id));
     this.urls.forEach(u => URL.revokeObjectURL(u));
     this.hideCropEditor();
     this.cropModal.remove();
+    if (this.pm) this.pm.remove();
     this.panel.remove();
     this.el.remove();
   }
@@ -655,9 +679,51 @@ class MyVideosControl {
     }
     this.renderList();
     this.redrawAll();
+    this.loadLibrary();
+  }
+
+  // Reads data/library/index.json and every .json it lists. A missing index just means "no library yet".
+  async loadLibrary() {
+    if (location.protocol === 'file:') return;
+    let names;
+    try {
+      const res = await fetch(MYV_LIBRARY_INDEX);
+      if (!res.ok) return;
+      names = await res.json();
+    } catch (e) { return; }
+    if (!Array.isArray(names)) return;
+    const files = await Promise.all(names.map(async name => {
+      try {
+        name = String(name);
+        const link = /^https?:\/\//i.test(name) ? name : MYV_LIBRARY_DIR + name;   // a file name, or a full link
+        const res = await fetch(link);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return myvFromLibrary(link.split(/[?#]/)[0].split('/').pop(), await res.json());
+      } catch (e) {
+        console.warn('Library: could not read ' + name, e);
+        return null;
+      }
+    }));
+    files.filter(Boolean).forEach(it => {
+      if (this.items.some(x => x.id === it.id)) return;
+      this.items.push(it);
+      this.prepareWarp(it);
+    });
+    this.renderList();
+  }
+
+  // The address a video plays from: a library video's own address, or the file kept in this browser
+  srcUrl(it) {
+    let url = this.urls.get(it.id);
+    if (!url) {
+      url = it.videoUrl || URL.createObjectURL(it.blob);
+      this.urls.set(it.id, url);
+    }
+    return url;
   }
 
   async save(item) {
+    if (item.library && !item.linked) return true;    // videos from data/library are not stored; ones added with links are
     if (!this.db) return false;
     try {
       const rec = Object.assign({}, item);
@@ -683,8 +749,7 @@ class MyVideosControl {
       }
       if (it._mesh) { this.drawMesh(it); return; }
       if (this.isCropped(it)) { this.drawCropped(it); return; }
-      let url = this.urls.get(it.id);
-      if (!url) { url = URL.createObjectURL(it.blob); this.urls.set(it.id, url); }
+      const url = this.srcUrl(it);
       map.addSource(sid, { type: 'video', urls: [url], coordinates: it.corners });
       // Under the border outlines when they are on
       const before = map.getLayer('borders-glow-1') ? 'borders-glow-1' : undefined;
@@ -778,7 +843,7 @@ class MyVideosControl {
       line2.append(dateIn, myvEl('span', 'myv-range', it.startDate + ' \u2192 ' + it.endDate));
     } else {
       timeEl = myvEl('span', 'myv-range myv-time', '0:00 / 0:00');
-      line2.append(timeEl, myvEl('span', 'myv-range', 'Add dates with Edit to jump by date'));
+      line2.append(timeEl, myvEl('span', 'myv-range', it.library ? 'No dates set for this video' : 'Add dates with Edit to jump by date'));
     }
     tl.append(line1, line2);
 
@@ -853,14 +918,14 @@ class MyVideosControl {
   }
 
   makeMeshMedia(it) {
-    let url = this.urls.get(it.id);
-    if (!url) { url = URL.createObjectURL(it.blob); this.urls.set(it.id, url); }
+    const url = this.srcUrl(it);
     const v = document.createElement('video');
     v.muted = true;
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
     v._myvCropped = true;                      // jumps only need a redraw, not the play/pause trick
+    if (it.videoUrl) v.crossOrigin = 'anonymous';   // library videos need CORS to be drawn on the map
     v.src = url;
     const m = { video: v, mesh: true, alive: true, raf: 0, sleep: 0, pending: false };
     this.media.set(it.id, m);
@@ -1054,7 +1119,6 @@ class MyVideosControl {
   }
 
   startGeoref(it) {
-    if (this.tf) this.endTransform(true);
     if (this.gr) this.endGeoref(true);
     const map = this.map;
     this.grWasOpen = !this.panel.hidden;
@@ -1328,7 +1392,6 @@ class MyVideosControl {
       it.gcpMethod = g.method;
       it.gcpAspect = g.aspect;
       this.save(it);
-      if (this.editingId === it.id) this.cornersIn.value = myvFormatCorners(it.corners, this.orderSel.value);
     } else {
       const nowMesh = !!it._mesh;
       it.corners = g.orig.corners;
@@ -1339,7 +1402,7 @@ class MyVideosControl {
     this.setOpen(this.grWasOpen);
   }
 
-  // ---------- placing by hand ----------
+  // ---------- where a new video first appears ----------
   pxToWorld() {
     const cv = this.map.getCanvas();
     const a = myvMerc(this.map.unproject([cv.clientWidth / 2, cv.clientHeight / 2]).toArray());
@@ -1368,180 +1431,6 @@ class MyVideosControl {
     } catch (e) { /* not drawn yet */ }
   }
 
-  startTransform(it, fly) {
-    if (it._mesh) {
-      if (!window.confirm('Moving this video by hand replaces its curved warp with a flat picture. Continue?')) return;
-      it._mesh = null;
-      if (MYV_METHODS[it.gcpMethod] && MYV_METHODS[it.gcpMethod].curved) it.gcpMethod = 'affine';
-      this.disposeMedia(it.id);
-      this.drawOne(it);
-    }
-    if (this.tf) this.endTransform(true);
-    const map = this.map;
-    this.tfWasOpen = !this.panel.hidden;
-    this.setOpen(false);
-    if (!it.visible) { it.visible = true; this.drawOne(it); this.renderList(); }
-    if (fly) this.flyTo(it);
-
-    const host = map.getCanvasContainer();
-    const svg = myvSvg('svg', {}, 'myv-tf');
-    const poly = myvSvg('polygon', {}, 'myv-tf-poly');
-    const rotLine = myvSvg('line', {}, 'myv-tf-line');
-    svg.append(poly, rotLine);
-    const handles = {};
-    ['n', 'e', 's', 'w', 'nw', 'ne', 'se', 'sw'].forEach(h => {
-      const el = myvSvg('rect', { width: 12, height: 12, rx: 2 }, 'myv-tf-h h-' + h);
-      handles[h] = el;
-      svg.append(el);
-    });
-    const rot = myvSvg('circle', { r: 8 }, 'myv-tf-h myv-tf-rot');
-    svg.append(rot);
-
-    const bar = myvEl('div', 'myv-tfbar');
-    bar.append(myvEl('span', 'myv-tfhint', 'Drag to move \u00B7 corners resize \u00B7 squares stretch \u00B7 round handle rotates (Shift = 15\u00B0 steps)'));
-    const cancel = myvEl('button', 'myv-btn', 'Cancel');
-    cancel.type = 'button';
-    cancel.addEventListener('click', () => this.endTransform(false));
-    const done = myvEl('button', 'myv-btn myv-primary', 'Done');
-    done.type = 'button';
-    done.addEventListener('click', () => this.endTransform(true));
-    bar.append(cancel, done);
-    ['mousedown', 'touchstart', 'dblclick'].forEach(ev => bar.addEventListener(ev, e => e.stopPropagation()));
-
-    // the shapes must not pan the map while they are dragged
-    const grab = (el, mode) => {
-      ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => e.stopPropagation()));
-      el.addEventListener('pointerdown', e => this.tfDown(e, mode));
-    };
-    grab(poly, 'move');
-    grab(rot, 'rotate');
-    Object.keys(handles).forEach(h => grab(handles[h], h));
-
-    host.append(svg, bar);
-
-    const onMove = () => this.tfRender();
-    const onKey = e => {
-      if (e.key === 'Escape') { e.preventDefault(); this.endTransform(false); }
-      else if (e.key === 'Enter' && !(e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName))) { e.preventDefault(); this.endTransform(true); }
-    };
-    map.on('move', onMove);
-    map.on('resize', onMove);
-    document.addEventListener('keydown', onKey);
-
-    this.tf = { it, T: myvTFromCorners(it.corners), orig: it.corners.map(c => c.slice()),
-                svg, bar, poly, rotLine, handles, rot, onMove, onKey };
-    this.tfRender();
-  }
-
-  tfRender() {
-    const tf = this.tf;
-    if (!tf) return;
-    const pts = myvCornersFromT(tf.T).map(c => this.map.project(c));
-    tf.poly.setAttribute('points', pts.map(p => p.x + ',' + p.y).join(' '));
-    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-    const pos = { nw: pts[0], ne: pts[1], se: pts[2], sw: pts[3],
-                  n: mid(pts[0], pts[1]), e: mid(pts[1], pts[2]), s: mid(pts[2], pts[3]), w: mid(pts[3], pts[0]) };
-    Object.keys(tf.handles).forEach(h => {
-      tf.handles[h].setAttribute('x', pos[h].x - 6);
-      tf.handles[h].setAttribute('y', pos[h].y - 6);
-    });
-    const centre = mid(pts[0], pts[2]);
-    let dx = pos.n.x - centre.x, dy = pos.n.y - centre.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const rx = pos.n.x + dx / len * 30, ry = pos.n.y + dy / len * 30;
-    tf.rot.setAttribute('cx', rx);
-    tf.rot.setAttribute('cy', ry);
-    tf.rotLine.setAttribute('x1', pos.n.x);
-    tf.rotLine.setAttribute('y1', pos.n.y);
-    tf.rotLine.setAttribute('x2', rx);
-    tf.rotLine.setAttribute('y2', ry);
-  }
-
-  tfWorld(ev) {
-    const r = this.map.getCanvas().getBoundingClientRect();
-    return myvMerc(this.map.unproject([ev.clientX - r.left, ev.clientY - r.top]).toArray());
-  }
-
-  tfDown(e, mode) {
-    e.preventDefault();
-    e.stopPropagation();
-    const tf = this.tf, el = e.currentTarget;
-    if (!tf) return;
-    const T0 = Object.assign({}, tf.T);
-    const m0 = this.tfWorld(e);
-    const minSize = this.pxToWorld() * 24;
-    const cos = Math.cos(T0.a), sin = Math.sin(T0.a);
-    const ang0 = Math.atan2(m0.y - T0.cy, m0.x - T0.cx);
-    const d0 = Math.hypot(m0.x - T0.cx, m0.y - T0.cy) || 1e-9;
-    try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-
-    const move = ev => {
-      const m = this.tfWorld(ev);
-      const T = Object.assign({}, T0);
-      if (mode === 'move') {
-        T.cx = T0.cx + (m.x - m0.x);
-        T.cy = T0.cy + (m.y - m0.y);
-      } else if (mode === 'rotate') {
-        let a = T0.a + (Math.atan2(m.y - T0.cy, m.x - T0.cx) - ang0);
-        if (ev.shiftKey) { const step = Math.PI / 12; a = Math.round(a / step) * step; }
-        T.a = a;
-      } else if (mode.length === 2) {                      // a corner: resize, keep the shape
-        const k = Math.max(Math.hypot(m.x - T0.cx, m.y - T0.cy) / d0, minSize / T0.w, minSize / T0.h);
-        T.w = T0.w * k;
-        T.h = T0.h * k;
-      } else {                                             // an edge: stretch along one side
-        const dx = m.x - T0.cx, dy = m.y - T0.cy;
-        const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos;   // pointer in the video's own axes
-        let clx = 0, cly = 0;
-        if (mode === 'e') { const r = Math.max(lx, -T0.w / 2 + minSize); T.w = r + T0.w / 2; clx = (r - T0.w / 2) / 2; }
-        if (mode === 'w') { const l = Math.min(lx, T0.w / 2 - minSize); T.w = T0.w / 2 - l; clx = (l + T0.w / 2) / 2; }
-        if (mode === 's') { const b = Math.max(ly, -T0.h / 2 + minSize); T.h = b + T0.h / 2; cly = (b - T0.h / 2) / 2; }
-        if (mode === 'n') { const t = Math.min(ly, T0.h / 2 - minSize); T.h = T0.h / 2 - t; cly = (t + T0.h / 2) / 2; }
-        T.cx = T0.cx + clx * cos - cly * sin;
-        T.cy = T0.cy + clx * sin + cly * cos;
-      }
-      this.tfApply(T);
-    };
-    const up = () => {
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
-    };
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-  }
-
-  tfApply(T) {
-    const tf = this.tf;
-    const corners = myvCornersFromT(T);
-    if (corners.some(c => !isFinite(c[0]) || !isFinite(c[1]) || Math.abs(c[1]) > MYV_MAX_LAT)) return;
-    tf.T = T;
-    tf.it.corners = corners;
-    this.applyCorners(tf.it);
-    this.tfRender();
-  }
-
-  endTransform(save) {
-    const tf = this.tf;
-    if (!tf) return;
-    this.tf = null;
-    this.map.off('move', tf.onMove);
-    this.map.off('resize', tf.onMove);
-    document.removeEventListener('keydown', tf.onKey);
-    tf.svg.remove();
-    tf.bar.remove();
-    const it = tf.it;
-    if (save) {
-      this.save(it);
-      if (this.editingId === it.id) this.cornersIn.value = myvFormatCorners(it.corners, this.orderSel.value);
-    } else {
-      it.corners = tf.orig;
-      this.applyCorners(it);
-    }
-    this.setOpen(this.tfWasOpen);
-  }
-
   // ---------- cropping ----------
   // A cropped video is played in a hidden <video>; its cropped part is copied onto a canvas
   // and the canvas is what gets pinned to the map (MapLibre cannot crop a video by itself).
@@ -1557,14 +1446,14 @@ class MyVideosControl {
   }
 
   makeMedia(it) {
-    let url = this.urls.get(it.id);
-    if (!url) { url = URL.createObjectURL(it.blob); this.urls.set(it.id, url); }
+    const url = this.srcUrl(it);
     const v = document.createElement('video');
     v.muted = true;
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
     v._myvCropped = true;
+    if (it.videoUrl) v.crossOrigin = 'anonymous';   // library videos need CORS to be drawn on the map
     v.src = url;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -1877,10 +1766,13 @@ class MyVideosControl {
 
   // ---------- list ----------
   renderList() {
-    this.toggle.textContent = this.items.length ? 'My Videos (' + this.items.length + ')' : 'My Videos';
-    this.listEl.hidden = !this.items.length;
+    const own = this.items.filter(it => !it.library), lib = this.items.filter(it => it.library);
+    this.toggle.textContent = own.length ? 'My Videos (' + own.length + ')' : 'My Videos';
+    this.listEl.hidden = !own.length;
+    lib.sort((a, b) => (a.created || 0) - (b.created || 0));
     this.ui.clear();
-    this.listEl.replaceChildren(...this.items.map(it => this.rowEl(it)));
+    this.listEl.replaceChildren(...own.map(it => this.rowEl(it)));
+    this.libEl.replaceChildren(...lib.map(it => this.rowEl(it)));
   }
 
   rowEl(it) {
@@ -1893,6 +1785,7 @@ class MyVideosControl {
     vis.addEventListener('change', async () => {
       it.visible = vis.checked;
       this.drawOne(it);
+      if (it.library && it.visible && !it._flown) { it._flown = true; this.flyTo(it); }   // show where it is, once
       await this.save(it);
     });
 
@@ -1906,11 +1799,6 @@ class MyVideosControl {
     geo.title = 'Georeference with control points, like QGIS';
     geo.addEventListener('click', () => this.startGeoref(it));
 
-    const move = myvEl('button', 'myv-icon', 'Move');
-    move.type = 'button';
-    move.title = 'Move, rotate and resize on the map';
-    move.addEventListener('click', () => this.startTransform(it, true));
-
     const edit = myvEl('button', 'myv-icon', 'Edit');
     edit.type = 'button';
     edit.addEventListener('click', () => this.startEdit(it));
@@ -1921,17 +1809,187 @@ class MyVideosControl {
     del.setAttribute('aria-label', 'Delete ' + it.name);
     del.addEventListener('click', () => this.remove(it));
 
-    row.append(vis, name, del);
+    row.append(vis);
+    if (it.library) row.append(this.thumbEl(it));
+    row.append(name);
+    if (!it.library || it.linked) row.append(del);       // videos added with links can be removed again
     const swap = myvEl('button', 'myv-icon', 'Swap');
     swap.type = 'button';
     swap.title = 'Replace with another video file (keeps position, crop and points)';
     swap.addEventListener('click', () => this.replaceVideo(it));
+    const exp = myvEl('button', 'myv-icon', 'Export');
+    exp.type = 'button';
+    exp.title = 'Download a .json with the position, to add this video to the site for everyone';
+    exp.addEventListener('click', () => this.exportItem(it));
     const actions = myvEl('div', 'myv-actions');
-    actions.append(geo, move, swap, edit);
+    actions.append(geo, swap, edit, exp);
     const tl = this.timelineEl(it);
     const block = myvEl('div', 'myv-block');
-    block.append(row, actions, tl);
+    block.append(row);
+    if (!it.library) block.append(actions);           // library videos are read-only
+    block.append(tl);
     return block;
+  }
+
+  // ---------- preview + mini player ----------
+  thumbEl(it) {
+    const b = myvEl('button', 'vitem-thumb myv-thumb');
+    b.type = 'button';
+    b.title = 'Play';
+    b.setAttribute('aria-label', 'Play ' + it.name);
+    const v = myvEl('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'metadata';
+    v.src = it.videoUrl.split('#')[0] + '#t=0.1';        // first frame as the preview
+    b.append(v);
+    b.addEventListener('click', () => this.openPlayer(it));
+    return b;
+  }
+
+  buildPlayer() {
+    const modal = this.pm = myvEl('div', 'pmodal myv-pmodal');
+    modal.hidden = true;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Video player');
+    const panel = myvEl('div', 'pmodal-panel');
+    const close = this.pmClose = myvEl('button', 'vmodal-close', '\u2715');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close');
+    close.addEventListener('click', () => this.closePlayer());
+    const head = myvEl('div', 'pmodal-head');
+    this.pmTitle = myvEl('span', 'pmodal-title');
+    head.append(this.pmTitle);
+    const frame = myvEl('div', 'pmodal-frame');
+    const video = this.pmVideo = myvEl('video');
+    video.controls = true;
+    video.playsInline = true;
+    frame.append(video);
+    const foot = myvEl('div', 'pmodal-foot');
+    const link = this.pmLink = myvEl('a', 'pmodal-link', 'Open the video in a new tab');
+    link.target = '_blank';
+    link.rel = 'noopener';
+    foot.append(link);
+    panel.append(close, head, frame, foot);
+    modal.append(panel);
+    modal.addEventListener('click', e => { if (e.target === modal) this.closePlayer(); });
+    document.body.append(modal);
+  }
+
+  openPlayer(it) {
+    if (!this.pm) this.buildPlayer();
+    this.pmTitle.textContent = it.name;
+    this.pmLink.href = it.videoUrl;
+    this.pmVideo.src = it.videoUrl;
+    this.pm.hidden = false;
+    requestAnimationFrame(() => this.pm.classList.add('open'));
+    const p = this.pmVideo.play();
+    if (p && p.catch) p.catch(() => {});
+    this.pmClose.focus();
+    this.pmKey = e => { if (e.key === 'Escape') this.closePlayer(); };
+    document.addEventListener('keydown', this.pmKey);
+  }
+
+  closePlayer() {
+    if (!this.pm || this.pm.hidden) return;
+    this.pm.classList.remove('open');
+    this.pmVideo.pause();
+    document.removeEventListener('keydown', this.pmKey);
+    setTimeout(() => {
+      if (this.pm.classList.contains('open')) return;         // opened again in the meantime
+      this.pm.hidden = true;
+      this.pmVideo.removeAttribute('src');
+      this.pmVideo.load();
+    }, 280);
+  }
+
+  // ---------- Add video (links) ----------
+  libSay(text, isError) {
+    this.libStatus.textContent = text || '';
+    this.libStatus.hidden = !text;
+    this.libStatus.classList.toggle('error', !!isError);
+  }
+
+  async addFromLinks() {
+    const toUrl = text => {
+      try { const u = new URL(text, document.baseURI); return /^https?:$/.test(u.protocol) ? u : null; }
+      catch (e) { return null; }
+    };
+    const vu = toUrl(this.addVideoIn.value.trim()), ju = toUrl(this.addJsonIn.value.trim());
+    if (!this.addVideoIn.value.trim() || !this.addJsonIn.value.trim() || !vu || !ju) {
+      this.libSay('Paste both links (they start with https://).', true);
+      return;
+    }
+    if (this.items.some(x => x.videoUrl === vu.href)) { this.libSay('That video is already in the list.', true); return; }
+    this.addGo.disabled = true;
+    this.libSay('Checking the links\u2026');
+    try {
+      let data;
+      try {
+        const res = await fetch(ju.href);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      } catch (e) {
+        this.libSay('Could not read the georeference file. Check the link, and that its storage allows this site.', true);
+        return;
+      }
+      const it = myvFromLibrary(ju.pathname.split('/').pop() || 'video.json', data, vu.href);
+      if (!it) { this.libSay('That file is not a georeferenced video file (made with Export).', true); return; }
+      if (!(await myvCanPlayUrl(vu.href))) {
+        this.libSay('The video did not load. Check the link (an H.264 .mp4 or a .webm) and that its storage allows this site.', true);
+        return;
+      }
+      it.id = 'link-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      it.linked = true;
+      it.visible = true;
+      it.created = Date.now();
+      it._flown = true;
+      this.items.push(it);
+      this.prepareWarp(it);
+      this.drawOne(it);
+      await this.save(it);
+      this.renderList();
+      this.flyTo(it);
+      this.addVideoIn.value = '';
+      this.addJsonIn.value = '';
+      this.addForm.hidden = true;
+      this.libSay('');
+    } finally {
+      this.addGo.disabled = false;
+    }
+  }
+
+  // Downloads the position of a video as a .json, to put in data/library/ (see the top of this file)
+  exportItem(it) {
+    const type = (it.blob && it.blob.type) || '';
+    const ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogv' : 'mp4';
+    const slug = String(it.name).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || ('video-' + it.id);
+    const data = {
+      format: 'tmw-georeferenced-video',
+      version: 1,
+      name: it.name,
+      video: MYV_LIBRARY_VIDEO_BASE + slug + '.' + ext,
+      corners: it.corners,
+      opacity: it.opacity,
+      startDate: it.startDate || '',
+      endDate: it.endDate || '',
+      crop: it.crop || { x: 0, y: 0, w: 1, h: 1 },
+      sharp: !!it.sharp,
+      gcps: it.gcps || [],
+      gcpMethod: it.gcpMethod || 'affine',
+      gcpAspect: it.gcpAspect || 1
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = slug + '.json';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    this.say('Saved ' + slug + '.json');
   }
 
   async remove(it) {
@@ -1956,9 +2014,6 @@ class MyVideosControl {
     this.editingId = it.id;
     this.fileIn.value = '';
     this.nameIn.value = it.name;
-    this.orderSel.value = 'latlng';
-    this.cornersIn.value = myvFormatCorners(it.corners, 'latlng');
-    this.editCorners0 = this.cornersIn.value;
     this.opIn.value = String(it.opacity);
     myvFill(this.opIn);
     this.sharpIn.checked = !!it.sharp;
@@ -1974,10 +2029,8 @@ class MyVideosControl {
 
   resetForm() {
     this.editingId = null;
-    this.editCorners0 = null;
     this.fileIn.value = '';
     this.nameIn.value = '';
-    this.cornersIn.value = '';
     this.opIn.value = '1';
     myvFill(this.opIn);
     this.startIn.value = '';
@@ -1995,10 +2048,6 @@ class MyVideosControl {
     const file = this.fileIn.files && this.fileIn.files[0];
     if (!editing && !file) { this.say('Choose a video file first.', true); return; }
 
-    const auto = !this.cornersIn.value.trim();          // empty = drop it at the crosshair
-    const parsed = auto ? null : myvParseCorners(this.cornersIn.value, this.orderSel.value);
-    if (parsed && parsed.error) { this.say(parsed.error, true); return; }
-
     const startDate = this.startIn.value, endDate = this.endIn.value;
     if (startDate || endDate) {
       if (!startDate || !endDate) { this.say('Set both timeline dates, or leave both empty.', true); return; }
@@ -2014,15 +2063,19 @@ class MyVideosControl {
     const crop = this.currentCrop();
     const opacity = Math.min(1, Math.max(0.1, Number(this.opIn.value) || 1));
     const name = this.nameIn.value.trim() || (file ? file.name.replace(/\.[^.]+$/, '') : editing.name);
-    let item;
+    let item, redo = false;
     if (editing) {
+      // The control points are set on the cropped picture, so a new crop makes them useless
+      const cropChanged = JSON.stringify(editing.crop || null) !== JSON.stringify(crop);
+      const hadPoints = !!(editing.gcps && editing.gcps.length);
+      if (cropChanged && hadPoints && !window.confirm('Changing the crop moves the picture your control points were set on. They will be removed and you will georeference the video again. Continue?')) return;
       item = editing;
       item.name = name;
-      const untouched = this.editCorners0 !== null && this.cornersIn.value === this.editCorners0 && this.orderSel.value === 'latlng';
-      if (!untouched) {                                  // new corners replace any curved warp
-        item.corners = auto ? this.spawnCorners(crop) : parsed.corners;
+      if (cropChanged && hadPoints) {
+        item.gcps = [];
         item._mesh = null;
         if (MYV_METHODS[item.gcpMethod] && MYV_METHODS[item.gcpMethod].curved) item.gcpMethod = 'affine';
+        redo = true;
       }
       item.opacity = opacity;
       item.startDate = startDate;
@@ -2037,7 +2090,7 @@ class MyVideosControl {
     } else {
       item = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        name, blob: file, corners: auto ? this.spawnCorners(crop) : parsed.corners, opacity, startDate, endDate, crop, sharp: this.sharpIn.checked, visible: true, created: Date.now()
+        name, blob: file, corners: this.spawnCorners(crop), opacity, startDate, endDate, crop, sharp: this.sharpIn.checked, visible: true, created: Date.now()
       };
       this.items.push(item);
     }
@@ -2049,10 +2102,7 @@ class MyVideosControl {
     this.resetForm();
     if (!saved) this.say('The video is on the map, but it could not be saved (storage full or blocked). It will be lost when you reload.', true);
     else if (!wasEditing && navigator.storage && navigator.storage.persist) navigator.storage.persist();
-    if (auto) {
-      if (this.placeSel.value === 'gcp') this.startGeoref(item);
-      else this.startTransform(item, false);
-    } else if (!wasEditing) this.flyTo(item);
+    if (!wasEditing || redo) this.startGeoref(item);          // new video: georeference it right away
   }
 }
 

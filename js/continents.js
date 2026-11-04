@@ -2,7 +2,7 @@
 //  CONTINENT FILTER for the video panels
 //
 //  - Every place in places.js gets its continent AUTOMATICALLY from its coordinates.
-//  - A row of buttons at the bottom of the screen (All, Europe, Asia, ...) shows only
+//  - A row of buttons at the top of the screen (All, Europe, Asia, ...) shows only
 //    the panels of the chosen continent and moves the map to them.
 //  - Only continents that actually have videos get a button.
 //
@@ -118,7 +118,7 @@ function initContinents(map) {
     const bounds = new maplibregl.LngLatBounds();
     shown.forEach(e => bounds.extend([e.pos.lng, e.pos.lat]));
     map.fitBounds(bounds, {
-      padding: { top: 90, bottom: 120, left: 60, right: 60 },
+      padding: { top: 110, bottom: 110, left: 60, right: 60 },
       maxZoom: name === 'All' ? 5 : 6,
       duration: 1200
     });
