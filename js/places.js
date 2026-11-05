@@ -244,4 +244,11 @@ const PLACES = [
       { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo', date: '1944-08-29 / 1944-10-28' }       
     ]
   }
+  {
+    coords: '45.75930, 126.62763',
+    name: 'Harbin',
+    videos: [
+      { title: 'Soviet Invasion of Manchuria/Manchurian Operation 八月暴风行动: Every Day', url: 'https://www.youtube.com/watch?v=8RPy6MIUXsA', date: '1945-08-08 / 1945-11-03' }       
+    ]
+  }
 ];
