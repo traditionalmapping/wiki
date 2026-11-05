@@ -243,7 +243,7 @@ const PLACES = [
     videos: [
       { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo', date: '1944-08-29 / 1944-10-28' }       
     ]
-  }
+  },
   {
     coords: '45.75930, 126.62763',
     name: 'Harbin',
