@@ -250,5 +250,12 @@ const PLACES = [
     videos: [
       { title: 'Soviet Invasion of Manchuria/Manchurian Operation 八月暴风行动: Every Day', url: 'https://www.youtube.com/watch?v=8RPy6MIUXsA', date: '1945-08-08 / 1945-11-03' }       
     ]
+  },
+  {
+    coords: '37.56670, 126.97831',
+    name: 'Seoul',
+    videos: [
+      { title: 'Liberation of Korea Everyday', url: 'https://www.youtube.com/watch?v=_Q9TMgEcDkE', date: '1945-08-01 / 1945-12-31' }       
+    ]
   }
 ];
