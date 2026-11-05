@@ -57,6 +57,7 @@ function myvFromLibrary(file, d, videoOverride) {
     opacity: Math.min(1, Math.max(0.1, Number(d.opacity) || 1)),
     startDate: d.startDate || '',
     endDate: d.endDate || '',
+    stamps: Array.isArray(d.stamps) ? d.stamps : [],
     crop: d.crop || { x: 0, y: 0, w: 1, h: 1 },
     sharp: !!d.sharp,
     gcps: Array.isArray(d.gcps) ? d.gcps : [],
@@ -125,11 +126,95 @@ function myvDay(iso) {
   const m = /^(\d{4,6})-(\d\d)-(\d\d)$/.exec(iso || '');
   return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : NaN;
 }
+
+// ---------- timestamps: "when the video is at this time, the map shows this date" ----------
+// A timestamp is { y, m, d, h, mi, t }: year (AD), month 1-12, day, hour, minute, and the video time t in
+// seconds. Between two timestamps the date moves in a straight line. Dates may jump or go backwards.
+function myvUtc(y, mo, d, h, mi) {
+  const t = new Date(0);
+  t.setUTCFullYear(y, mo - 1, d);
+  t.setUTCHours(h || 0, mi || 0, 0, 0);
+  return t.getTime();
+}
+function myvDaysIn(y, m) { return new Date(myvUtc(y, m + 1, 0, 0, 0)).getUTCDate(); }
+const myvP2 = n => String(n).padStart(2, '0');
+const myvIso = ms => new Date(ms).toISOString().slice(0, 10);
+
+// seconds <-> "hh:mm:ss.cc"
+function myvStampClock(t) {
+  const c = Math.round(Math.max(0, Number(t) || 0) * 100);
+  return myvP2(Math.floor(c / 360000)) + ':' + myvP2(Math.floor(c / 6000) % 60) + ':' + myvP2(Math.floor(c / 100) % 60) + '.' + myvP2(c % 100);
+}
+function myvParseClock(str) {                      // accepts 12.5, 2:51.06 or 0:02:51.06
+  const m = /^\s*(?:(?:(\d+):)?(\d+):)?(\d+(?:[.,]\d+)?)\s*$/.exec(str || '');
+  if (!m) return NaN;
+  return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3].replace(',', '.'));
+}
+
+// The (video time -> date) points of a video, sorted by video time. Uses the timestamps when there are
+// two or more, otherwise the old "first frame / last frame" dates. null when there is no usable timeline.
+function myvPoints(it, dur) {
+  let pts = [];
+  if (Array.isArray(it.stamps) && it.stamps.length >= 2) {
+    pts = it.stamps.map(s => ({ ms: myvUtc(s.y, s.m, s.d, s.h, s.mi), t: Number(s.t) }));
+  } else {
+    const a = myvDay(it.startDate), b = myvDay(it.endDate);
+    if (isFinite(a) && isFinite(b) && b > a && dur > 0) pts = [{ ms: a, t: 0 }, { ms: b, t: dur }];
+  }
+  if (pts.length < 2 || pts.some(p => !isFinite(p.ms) || !isFinite(p.t))) return null;
+  pts.sort((p, q) => p.t - q.t);
+  for (let i = 1; i < pts.length; i++) if (!(pts[i].t > pts[i - 1].t)) return null;
+  return pts;
+}
+// video seconds -> date in ms (before the first / after the last timestamp the date stays put)
+function myvTimeToMs(pts, t) {
+  if (t <= pts[0].t) return pts[0].ms;
+  const last = pts[pts.length - 1];
+  if (t >= last.t) return last.ms;
+  for (let i = 1; i < pts.length; i++) {
+    if (t <= pts[i].t) {
+      const k = (t - pts[i - 1].t) / (pts[i].t - pts[i - 1].t);
+      return pts[i - 1].ms + k * (pts[i].ms - pts[i - 1].ms);
+    }
+  }
+  return last.ms;
+}
+// date in ms -> video seconds (the first stretch of the video that passes through that date)
+function myvMsToTime(pts, ms) {
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (a.ms === b.ms) continue;
+    if (ms >= Math.min(a.ms, b.ms) && ms <= Math.max(a.ms, b.ms)) return a.t + (ms - a.ms) / (b.ms - a.ms) * (b.t - a.t);
+  }
+  let best = pts[0];
+  pts.forEach(p => { if (Math.abs(p.ms - ms) < Math.abs(best.ms - ms)) best = p; });
+  return best.t;                                   // outside every stretch: go to the nearest timestamp
+}
 // fraction of the video (0..1) -> the date it shows, snapped to a whole day
-function myvFracToDate(it, frac) {
-  const a = myvDay(it.startDate), b = myvDay(it.endDate);
-  const ms = Math.round((a + frac * (b - a)) / 86400000) * 86400000;
-  return new Date(ms).toISOString().slice(0, 10);
+function myvFracToDate(it, frac, dur) {
+  const pts = myvPoints(it, dur);
+  if (!pts) return '';
+  const snap = Array.isArray(it.stamps) && it.stamps.length >= 2 ? Math.floor : Math.round;
+  return myvIso(snap(myvTimeToMs(pts, frac * dur) / 86400000) * 86400000);
+}
+
+// The part of the video (seconds) that shows one calendar day: { from, to }.
+// null when that day is not inside the video's timeline.
+function myvDaySegment(pts, dayMs, dur) {
+  const DAY = 86400000;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (a.ms === b.ms) continue;
+    const lo = Math.min(a.ms, b.ms), hi = Math.max(a.ms, b.ms);
+    if (!(dayMs + DAY > lo && dayMs <= hi)) continue;          // this stretch does not touch that day
+    const tAt = ms => a.t + (ms - a.ms) / (b.ms - a.ms) * (b.t - a.t);
+    const t1 = tAt(Math.max(dayMs, lo)), t2 = tAt(Math.min(dayMs + DAY, hi));
+    let from = Math.min(t1, t2), to = Math.max(t1, t2);
+    if (dur > 0) { from = Math.min(Math.max(from, 0), dur); to = Math.min(Math.max(to, 0), dur); }
+    if (to - from < 0.5) from = Math.max(0, to - 1);           // the very last day: keep a short piece to show
+    return { from, to };
+  }
+  return null;
 }
 
 // ---------- placing a video by hand: the video is a rectangle (centre, size, angle) ----------
@@ -476,6 +561,10 @@ class MyVideosControl {
     this.meshLayers = new Map(); // id -> WebGL layer of a curved (warped) video
     this.crop = { x: 0, y: 0, w: 1, h: 1 };   // crop shown in the form (fractions of the video)
     this.previewUrl = null;
+    this.stamps = [];            // timestamps shown in the form (see buildStampEditor)
+    this.pendingGeo = null;      // a georeference .json chosen in the form, waiting for "Add to map"
+    this.segs = new Map();       // id -> { from, to, day, it }: a picked date plays only that day's part of the video
+    this.segRaf = 0;
   }
 
   onAdd() {
@@ -537,10 +626,18 @@ class MyVideosControl {
     this.fileIn.addEventListener('change', () => {
       const f = this.fileIn.files && this.fileIn.files[0];
       if (!f) { if (!this.editingId) this.hideCropEditor(); return; }
-      if (!this.editingId) this.crop = { x: 0, y: 0, w: 1, h: 1 };
+      if (!this.editingId && !this.pendingGeo) this.crop = { x: 0, y: 0, w: 1, h: 1 };
       this.showCropEditor(f);
     });
     const cropBox = this.buildCropEditor();
+
+    const jsonLabel = myvEl('label', 'myv-field');
+    jsonLabel.append(myvEl('span', 'myv-label', 'Georeference file (.json, optional)'));
+    this.jsonIn = myvEl('input');
+    this.jsonIn.type = 'file';
+    this.jsonIn.accept = '.json,application/json';
+    jsonLabel.append(this.jsonIn, myvEl('div', 'myv-hint', 'The .json made by Export. Choose it together with the video file and the video lands on the map in its saved place. A .json that holds a video link needs no file.'));
+    this.jsonIn.addEventListener('change', () => this.loadGeoJson(this.jsonIn.files && this.jsonIn.files[0]));
 
     const nameLabel = myvEl('label', 'myv-field');
     nameLabel.append(myvEl('span', 'myv-label', 'Name'));
@@ -590,6 +687,8 @@ class MyVideosControl {
     this.sharpIn.type = 'checkbox';
     sharpLabel.append(this.sharpIn, myvEl('span', '', 'Sharp pixels (no smoothing when zoomed in)'));
 
+    const settings = this.buildStampEditor();      // "Video Settings" > "Edit Timestamps"
+
     const buttons = myvEl('div', 'myv-row');
     this.submitBtn = myvEl('button', 'myv-btn myv-primary', 'Add to map');
     this.submitBtn.type = 'button';
@@ -603,7 +702,7 @@ class MyVideosControl {
     this.status = myvEl('div', 'myv-status');
     this.status.hidden = true;
 
-    form.append(fileLabel, cropBox, nameLabel, dateField, opLabel, sharpLabel, myvEl('div', 'myv-hint', 'After you add a video, a window opens where you georeference it with control points, like in QGIS.'), buttons, this.status);
+    form.append(fileLabel, jsonLabel, cropBox, nameLabel, settings, opLabel, sharpLabel, myvEl('div', 'myv-hint', 'After you add a video, a window opens where you georeference it with control points, like in QGIS.'), buttons, this.status);
     panel.append(form);
 
     el.append(toggle);
@@ -615,6 +714,7 @@ class MyVideosControl {
 
   onRemove() {
     if (this.gr) this.endGeoref(false);
+    cancelAnimationFrame(this.segRaf);
     this.grModal.remove();
     this.media.forEach((m, id) => this.disposeMedia(id));
     this.urls.forEach(u => URL.revokeObjectURL(u));
@@ -736,6 +836,7 @@ class MyVideosControl {
   bindVideo(it, v) {
     if (v._myvBound) return;
     v._myvBound = true;
+    this.ensureTick();
     const sync = () => this.syncTimeline(it, v);
     ['timeupdate', 'play', 'pause', 'loadedmetadata', 'seeked'].forEach(ev => v.addEventListener(ev, sync));
   }
@@ -749,7 +850,8 @@ class MyVideosControl {
     const frac = Math.min(1, v.currentTime / v.duration);
     ui.slider.value = String(Math.round(frac * 1000));
     myvFill(ui.slider);
-    if (ui.dateIn && document.activeElement !== ui.dateIn) ui.dateIn.value = myvFracToDate(it, frac);
+    const seg = this.segs.get(it.id);
+    if (ui.dateIn && document.activeElement !== ui.dateIn) ui.dateIn.value = seg ? seg.day : myvFracToDate(it, frac, v.duration);
     if (ui.timeEl) ui.timeEl.textContent = myvClock(v.currentTime) + ' / ' + myvClock(v.duration);
   }
 
@@ -768,8 +870,8 @@ class MyVideosControl {
   // The timeline under a video in the list. With dates it shows a date box (type 1939-09-17 and the
   // video jumps there); without dates it shows the plain time (0:12 / 1:30).
   timelineEl(it) {
-    const a = myvDay(it.startDate), b = myvDay(it.endDate);
-    const hasDates = isFinite(a) && isFinite(b) && b > a;
+    const probe = myvPoints(it, 1);                  // timestamps, or the first / last frame dates
+    const hasDates = !!probe;
 
     const tl = myvEl('div', 'myv-timeline');
     const line1 = myvEl('div', 'myv-tl-line');
@@ -785,22 +887,30 @@ class MyVideosControl {
     line1.append(play, slider);
 
     const line2 = myvEl('div', 'myv-tl-line');
-    let dateIn = null, timeEl = null;
+    let dateIn = null, timeEl = null, rangeEl = null, allBtn = null, rangeText = '';
     if (hasDates) {
       dateIn = myvEl('input');
       dateIn.type = 'date';
-      dateIn.min = it.startDate;
-      dateIn.max = it.endDate;
-      dateIn.value = it.startDate;
+      const all = probe.map(p => p.ms);
+      dateIn.min = myvIso(Math.min(...all));
+      dateIn.max = myvIso(Math.max(...all));
+      dateIn.value = myvIso(probe[0].ms);
       dateIn.setAttribute('aria-label', 'Go to date');
-      line2.append(dateIn, myvEl('span', 'myv-range', it.startDate + ' \u2192 ' + it.endDate));
+      rangeText = myvIso(probe[0].ms) + ' \u2192 ' + myvIso(probe[probe.length - 1].ms);
+      rangeEl = myvEl('span', 'myv-range', rangeText);
+      allBtn = myvEl('button', 'myv-icon', 'All');
+      allBtn.type = 'button';
+      allBtn.hidden = true;
+      allBtn.title = 'Play the whole dated part again';
+      allBtn.addEventListener('click', () => this.clearSegment(it));
+      line2.append(dateIn, rangeEl, allBtn);
     } else {
       timeEl = myvEl('span', 'myv-range myv-time', '0:00 / 0:00');
       line2.append(timeEl, myvEl('span', 'myv-range', it.library ? 'No dates set for this video' : 'Add dates with Edit to jump by date'));
     }
     tl.append(line1, line2);
 
-    const ui = { slider, dateIn, timeEl, play, holdUntil: 0 };
+    const ui = { slider, dateIn, timeEl, play, rangeEl, allBtn, rangeText, holdUntil: 0 };
     this.ui.set(it.id, ui);
 
     play.addEventListener('click', () => {
@@ -815,10 +925,13 @@ class MyVideosControl {
     slider.addEventListener('input', () => {
       const v = this.videoOf(it);
       if (!v || !isFinite(v.duration)) return;
-      const frac = Number(slider.value) / 1000;
+      let frac = Number(slider.value) / 1000;
+      this.clearSegment(it);                 // scrubbing by hand shows the dated part again
+      const lim = this.rangeOf(it, v.duration);
+      if (lim) { frac = Math.min(lim.to, Math.max(lim.from, frac * v.duration)) / v.duration; slider.value = String(Math.round(frac * 1000)); }
       myvFill(slider);
       ui.holdUntil = Date.now() + 400;
-      if (dateIn) dateIn.value = myvFracToDate(it, frac);
+      if (dateIn) dateIn.value = myvFracToDate(it, frac, v.duration);
       if (timeEl) timeEl.textContent = myvClock(frac * v.duration) + ' / ' + myvClock(v.duration);
       this.seekTo(v, frac);
     });
@@ -827,17 +940,85 @@ class MyVideosControl {
         const v = this.videoOf(it);
         const d = myvDay(dateIn.value);
         if (!v || !isFinite(v.duration) || !isFinite(d)) return;
-        const frac = Math.min(1, Math.max(0, (d - a) / (b - a)));   // dates outside the video snap to its ends
+        const pts = myvPoints(it, v.duration);
+        if (!pts) return;
         ui.holdUntil = Date.now() + 400;
+        const seg = myvDaySegment(pts, d, v.duration);
+        if (seg) {                                       // play only the part of the video that shows this day
+          this.setSegment(it, Object.assign(seg, { day: myvIso(d) }));
+          slider.value = String(Math.round(seg.from / v.duration * 1000));
+          myvFill(slider);
+          dateIn.value = myvIso(d);
+          clearTimeout(v._myvPause);
+          v.currentTime = seg.from;
+          const p = v.play();
+          if (p && p.catch) p.catch(() => {});
+          return;
+        }
+        this.clearSegment(it);                           // a date outside the video: jump to the nearest end
+        const frac = Math.min(1, Math.max(0, myvMsToTime(pts, d) / v.duration));
         slider.value = String(Math.round(frac * 1000));
         myvFill(slider);
-        dateIn.value = myvFracToDate(it, frac);
+        dateIn.value = myvFracToDate(it, frac, v.duration);
         this.seekTo(v, frac);
       });
     }
 
     this.syncTimeline(it, this.videoOf(it));
+    this.syncSegUi(it);
     return tl;
+  }
+
+  // ---------- a picked date plays only that day's part of the video ----------
+  setSegment(it, seg) {
+    this.segs.set(it.id, { from: seg.from, to: seg.to, day: seg.day, it });
+    this.syncSegUi(it);
+    this.ensureTick();
+  }
+
+  clearSegment(it) {
+    if (!this.segs.delete(it.id)) return;
+    this.syncSegUi(it);
+  }
+
+  // The part of the video that may show: the picked day, else from the first to the last timestamp
+  // (so an intro or outro outside the dated part is never shown). null = the whole video.
+  rangeOf(it, dur) {
+    const seg = this.segs.get(it.id);
+    if (seg) return seg;
+    const pts = myvPoints(it, dur);
+    if (!pts) return null;
+    const from = pts[0].t, to = pts[pts.length - 1].t;
+    return from <= 0.05 && to >= dur - 0.05 ? null : { from, to };
+  }
+
+  ensureTick() {
+    if (!this.segRaf) this.segRaf = requestAnimationFrame(() => this.segTick());
+  }
+
+  // Keeps every visible video inside its range; at the end of it the video loops back to its start
+  segTick() {
+    this.segRaf = 0;
+    this.items.forEach(it => {
+      if (!it.visible) return;
+      const v = this.videoOf(it);
+      if (!v || v.seeking || !isFinite(v.duration) || !v.duration) return;
+      const r = this.rangeOf(it, v.duration);
+      if (!r) return;
+      const t = v.currentTime;
+      if (v.paused) {
+        if (t < r.from - 0.3 || t > r.to + 0.3) this.seekTo(v, r.from / v.duration);
+      } else if (t >= r.to || t < r.from - 0.3) v.currentTime = r.from;
+    });
+    this.segRaf = requestAnimationFrame(() => this.segTick());
+  }
+
+  syncSegUi(it) {
+    const ui = this.ui.get(it.id);
+    if (!ui || !ui.rangeEl) return;
+    const seg = this.segs.get(it.id);
+    ui.rangeEl.textContent = seg ? 'Only ' + seg.day + ' (' + myvClock(seg.from) + '\u2013' + myvClock(seg.to) + ')' : ui.rangeText;
+    ui.allBtn.hidden = !seg;
   }
 
   redrawAll() { this.items.forEach(it => this.drawOne(it)); }
@@ -2006,6 +2187,7 @@ class MyVideosControl {
       opacity: it.opacity,
       startDate: it.startDate || '',
       endDate: it.endDate || '',
+      stamps: it.stamps || [],
       crop: it.crop || { x: 0, y: 0, w: 1, h: 1 },
       sharp: !!it.sharp,
       gcps: it.gcps || [],
@@ -2034,10 +2216,175 @@ class MyVideosControl {
     if (url) { URL.revokeObjectURL(url); this.urls.delete(it.id); }
     this.items = this.items.filter(x => x !== it);
     this.ui.delete(it.id);
+    this.segs.delete(it.id);
     this.disposeMedia(it.id);
     if (this.editingId === it.id) this.resetForm();
     this.renderList();
     if (this.db) { try { await myvRun(this.db, 'readwrite', s => s.delete(it.id)); } catch (e) { /* ignore */ } }
+  }
+
+  // Reads a georeference .json (made by Export) and fills the form with it
+  async loadGeoJson(file) {
+    this.pendingGeo = null;
+    if (!file) return;
+    const fail = msg => { this.jsonIn.value = ''; this.say(msg, true); };
+    let d;
+    try { d = JSON.parse(await file.text()); } catch (e) { fail('That file is not valid JSON.'); return; }
+    const okPair = c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite);
+    if (!d || !Array.isArray(d.corners) || d.corners.length !== 4 || !d.corners.every(okPair)) {
+      fail('This .json has no georeference. Use a file made with the Export button.');
+      return;
+    }
+    this.pendingGeo = d;
+    if (!this.nameIn.value.trim() && d.name) this.nameIn.value = String(d.name).slice(0, 80);
+    this.opIn.value = String(Math.min(1, Math.max(0.1, Number(d.opacity) || 1)));
+    myvFill(this.opIn);
+    this.sharpIn.checked = !!d.sharp;
+    this.startIn.value = d.startDate || '';
+    this.endIn.value = d.endDate || '';
+    const c = d.crop;
+    this.crop = c && [c.x, c.y, c.w, c.h].every(Number.isFinite) ? { x: c.x, y: c.y, w: c.w, h: c.h } : { x: 0, y: 0, w: 1, h: 1 };
+    this.updateCropSummary();
+    this.stamps = (Array.isArray(d.stamps) ? d.stamps : []).filter(s => s && [s.y, s.m, s.d, s.h, s.mi, s.t].every(Number.isFinite)).map(s => ({ y: s.y, m: s.m, d: s.d, h: s.h, mi: s.mi, t: s.t }));
+    this.renderStamps();
+    const hasLink = typeof d.video === 'string';
+    this.say('Georeference loaded.' + (hasLink ? ' It holds a video link, so a video file is not needed.' : ' Now choose the video file it belongs to.') + ' Press the button to add it.');
+  }
+
+  // ---------- timestamps ----------
+  buildStampEditor() {
+    const det = this.vsBox = myvEl('details', 'myv-vs');
+    det.append(myvEl('summary', 'myv-vs-sum', 'Video Settings'));
+
+    const head = myvEl('div', 'myv-row myv-ts-head');
+    head.append(myvEl('span', 'myv-label', 'Edit Timestamps'));
+    const btns = myvEl('div', 'myv-ts-btns');
+    const mk = (text, title, fn) => {
+      const b = myvEl('button', 'myv-icon myv-ts-btn', text);
+      b.type = 'button';
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.addEventListener('click', fn);
+      return b;
+    };
+    btns.append(
+      mk('\u2195', 'Sort by video time', () => { this.stamps.sort((a, b) => a.t - b.t); this.renderStamps(); }),
+      mk('+', 'Add a timestamp', () => this.addStamp()),
+      mk('i', 'How timestamps work', () => { this.tsInfo.hidden = !this.tsInfo.hidden; })
+    );
+    head.append(btns);
+
+    this.tsInfo = myvEl('div', 'myv-hint myv-ts-info',
+      'Each row says: when the video is at this time, the map shows this date. Between two rows the date moves smoothly; ' +
+      'the dates may jump or go back. Add at least two rows. The \u2192 button takes the current time of the video. ' +
+      ''); 
+    this.tsInfo.hidden = true;
+    this.tsList = myvEl('div', 'myv-ts-list');
+    det.append(head, this.tsInfo, this.tsList);
+    this.renderStamps();
+    return det;
+  }
+
+  addStamp() {
+    const last = this.stamps[this.stamps.length - 1];
+    const sd = /^(\d{4,6})-(\d\d)-(\d\d)$/.exec(this.startIn.value || '');
+    const s = last ? Object.assign({}, last, { t: Math.round((last.t + 1) * 100) / 100 })
+      : sd ? { y: Number(sd[1]), m: Number(sd[2]), d: Number(sd[3]), h: 0, mi: 0, t: 0 }
+      : { y: 1939, m: 9, d: 1, h: 0, mi: 0, t: 0 };
+    this.stamps.push(s);
+    this.renderStamps();
+    this.vsBox.open = true;
+  }
+
+  // The video time to copy into a row: the video on the map when editing, else the crop preview
+  stampVideoTime() {
+    const it = this.editingId ? this.items.find(x => x.id === this.editingId) : null;
+    const v = (it && this.videoOf(it)) || (this.cropVideo && this.cropVideo.getAttribute('src') ? this.cropVideo : null);
+    return v && isFinite(v.currentTime) ? v.currentTime : null;
+  }
+
+  renderStamps() {
+    if (!this.tsList) return;
+    this.tsList.replaceChildren(...this.stamps.map((s, i) => this.stampRow(s, i)));
+    this.tsList.hidden = !this.stamps.length;
+    if (this.stamps.length && this.vsBox) this.vsBox.open = true;
+  }
+
+  stampRow(s, i) {
+    const row = myvEl('div', 'myv-ts-row');
+    const field = (key, lo, hi, digits, cls) => {
+      const inp = myvEl('input', 'myv-ts-in ' + cls);
+      inp.type = 'text';
+      inp.inputMode = 'numeric';
+      inp.maxLength = digits;
+      inp.value = myvP2(s[key]).padStart(digits, '0');
+      inp.setAttribute('aria-label', key + ' of timestamp ' + (i + 1));
+      inp.addEventListener('change', () => {
+        const n = parseInt(inp.value, 10);
+        if (isFinite(n)) s[key] = Math.min(hi, Math.max(lo, n));
+        inp.value = String(s[key]).padStart(digits, '0');
+        s.d = Math.min(s.d, myvDaysIn(s.y, s.m));
+        dayIn.value = myvP2(s.d);
+      });
+      return inp;
+    };
+    const dayIn = field('d', 1, 31, 2, 'ts-d');
+    const month = myvEl('select', 'myv-ts-in ts-m');
+    ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      .forEach((n, k) => { const o = myvEl('option', '', n); o.value = String(k + 1); month.append(o); });
+    month.value = String(s.m);
+    month.setAttribute('aria-label', 'Month of timestamp ' + (i + 1));
+    month.addEventListener('change', () => {
+      s.m = Number(month.value);
+      s.d = Math.min(s.d, myvDaysIn(s.y, s.m));
+      dayIn.value = myvP2(s.d);
+    });
+    const yearIn = field('y', 1, 9999, 4, 'ts-y');
+
+    const line1 = myvEl('div', 'myv-ts-line');
+    line1.append(dayIn, month, yearIn, myvEl('span', 'myv-ts-ad', 'AD'));
+
+    const hIn = field('h', 0, 23, 2, 'ts-h'), mIn = field('mi', 0, 59, 2, 'ts-mi');
+    const clock = myvEl('input', 'myv-ts-in ts-t');
+    clock.type = 'text';
+    clock.value = myvStampClock(s.t);
+    clock.title = 'Video time (hh:mm:ss.cc)';
+    clock.setAttribute('aria-label', 'Video time of timestamp ' + (i + 1));
+    clock.addEventListener('change', () => {
+      const n = myvParseClock(clock.value);
+      if (isFinite(n)) s.t = Math.round(n * 100) / 100;
+      clock.value = myvStampClock(s.t);
+    });
+    const take = myvEl('button', 'myv-icon myv-ts-btn', '\u2192');
+    take.type = 'button';
+    take.title = 'Use the current time of the video';
+    take.addEventListener('click', () => {
+      const t = this.stampVideoTime();
+      if (t === null) { this.say('Show the video on the map (or choose a file) to take its time.', true); return; }
+      s.t = Math.round(t * 100) / 100;
+      clock.value = myvStampClock(s.t);
+    });
+    const del = myvEl('button', 'myv-icon myv-ts-btn', '\u2715');
+    del.type = 'button';
+    del.title = 'Delete this timestamp';
+    del.addEventListener('click', () => { this.stamps.splice(i, 1); this.renderStamps(); });
+
+    const line2 = myvEl('div', 'myv-ts-line');
+    line2.append(hIn, myvEl('span', 'myv-ts-ad', ':'), mIn, clock, take, del);
+    row.append(line1, line2);
+    return row;
+  }
+
+  // The rows as saved data, or { error } when they cannot work
+  cleanStamps() {
+    const list = this.stamps.map(s => ({ y: s.y, m: s.m, d: s.d, h: s.h, mi: s.mi, t: Math.round(s.t * 100) / 100 }));
+    if (!list.length) return { list: [] };
+    if (list.length < 2) return { error: 'Add at least two timestamps, or delete the one you have.' };
+    list.sort((a, b) => a.t - b.t);
+    for (let i = 1; i < list.length; i++) {
+      if (!(list[i].t > list[i - 1].t)) return { error: 'Two timestamps have the same video time. Give each row its own video time.' };
+    }
+    return { list };
   }
 
   // ---------- form ----------
@@ -2050,6 +2397,10 @@ class MyVideosControl {
     this.sharpIn.checked = !!it.sharp;
     this.startIn.value = it.startDate || '';
     this.endIn.value = it.endDate || '';
+    this.stamps = (it.stamps || []).map(s => Object.assign({}, s));
+    this.renderStamps();
+    this.pendingGeo = null;
+    this.jsonIn.value = '';
     this.crop = it.crop ? Object.assign({}, it.crop) : { x: 0, y: 0, w: 1, h: 1 };
     this.showCropEditor(it.blob);
     this.submitBtn.textContent = 'Save changes';
@@ -2066,6 +2417,11 @@ class MyVideosControl {
     myvFill(this.opIn);
     this.startIn.value = '';
     this.endIn.value = '';
+    this.stamps = [];
+    this.renderStamps();
+    this.pendingGeo = null;
+    if (this.jsonIn) this.jsonIn.value = '';
+    if (this.vsBox) this.vsBox.open = false;
     this.sharpIn.checked = false;
     this.hideCropEditor();
     this.submitBtn.textContent = 'Add to map';
@@ -2077,12 +2433,40 @@ class MyVideosControl {
   async submit() {
     const editing = this.editingId ? this.items.find(x => x.id === this.editingId) : null;
     const file = this.fileIn.files && this.fileIn.files[0];
-    if (!editing && !file) { this.say('Choose a video file first.', true); return; }
+    const geo = this.pendingGeo;
+    if (!editing && !file && !(geo && typeof geo.video === 'string')) {
+      this.say(geo ? 'Choose the video file this .json belongs to (it holds only the position).' : 'Choose a video file first.', true);
+      return;
+    }
 
     const startDate = this.startIn.value, endDate = this.endIn.value;
     if (startDate || endDate) {
       if (!startDate || !endDate) { this.say('Set both timeline dates, or leave both empty.', true); return; }
       if (!(myvDay(endDate) > myvDay(startDate))) { this.say('The last-frame date must be after the first-frame date.', true); return; }
+    }
+
+    const stampData = this.cleanStamps();
+    if (stampData.error) { this.say(stampData.error, true); return; }
+
+    if (!editing && !file && geo) {                    // the .json carries a link to the video
+      this.say('Loading\u2026');
+      const url = new URL(geo.video, document.baseURI).href;
+      if (!(await myvCanPlayUrl(url))) { this.say('The video link in this .json did not load (an H.264 .mp4 or a .webm, and its storage must allow this site).', true); return; }
+      const it = myvFromLibrary('video.json', geo, url);
+      if (!it) { this.say('This .json is not a valid georeference.', true); return; }
+      it.id = 'link-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      it.name = this.nameIn.value.trim() || it.name;
+      it.linked = true;
+      it.visible = true;
+      it.created = Date.now();
+      it._flown = true;
+      this.items.push(it);
+      this.prepareWarp(it);
+      this.drawOne(it);
+      this.resetForm();
+      this.flyTo(it);
+      this.say('Added. A video added by link is not kept after a reload; add the .json again then.');
+      return;
     }
 
     if (file) {
@@ -2099,10 +2483,10 @@ class MyVideosControl {
       // The control points are set on the cropped picture, so a new crop makes them useless
       const cropChanged = JSON.stringify(editing.crop || null) !== JSON.stringify(crop);
       const hadPoints = !!(editing.gcps && editing.gcps.length);
-      if (cropChanged && hadPoints && !window.confirm('Changing the crop moves the picture your control points were set on. They will be removed and you will georeference the video again. Continue?')) return;
+      if (cropChanged && hadPoints && !geo && !window.confirm('Changing the crop moves the picture your control points were set on. They will be removed and you will georeference the video again. Continue?')) return;
       item = editing;
       item.name = name;
-      if (cropChanged && hadPoints) {
+      if (cropChanged && hadPoints && !geo) {
         item.gcps = [];
         item._mesh = null;
         if (MYV_METHODS[item.gcpMethod] && MYV_METHODS[item.gcpMethod].curved) item.gcpMethod = 'affine';
@@ -2111,6 +2495,7 @@ class MyVideosControl {
       item.opacity = opacity;
       item.startDate = startDate;
       item.endDate = endDate;
+      item.stamps = stampData.list;
       item.crop = crop;
       item.sharp = this.sharpIn.checked;
       if (file) {
@@ -2121,19 +2506,27 @@ class MyVideosControl {
     } else {
       item = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        name, blob: file, corners: this.spawnCorners(crop), opacity, startDate, endDate, crop, sharp: this.sharpIn.checked, visible: true, created: Date.now()
+        name, blob: file, corners: this.spawnCorners(crop), opacity, startDate, endDate, stamps: stampData.list, crop, sharp: this.sharpIn.checked, visible: true, created: Date.now()
       };
       this.items.push(item);
     }
 
     if (editing) this.disposeMedia(item.id);       // crop / file may have changed
+    if (geo) {                                     // position from the .json
+      item.corners = geo.corners.map(c => c.slice());
+      item.gcps = Array.isArray(geo.gcps) ? geo.gcps : [];
+      item.gcpMethod = geo.gcpMethod || 'affine';
+      item.gcpAspect = geo.gcpAspect || 1;
+      this.prepareWarp(item);
+      redo = false;
+    }
     this.drawOne(item);
     const saved = await this.save(item);
     const wasEditing = !!editing;
     this.resetForm();
     if (!saved) this.say('The video is on the map, but it could not be saved (storage full or blocked). It will be lost when you reload.', true);
     else if (!wasEditing && navigator.storage && navigator.storage.persist) navigator.storage.persist();
-    if (!wasEditing || redo) this.startGeoref(item);          // new video: georeference it right away
+    if ((!wasEditing && !geo) || redo) this.startGeoref(item);          // new video: georeference it right away
   }
 }
 

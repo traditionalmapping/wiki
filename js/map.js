@@ -5,6 +5,9 @@ try {
   const saved = localStorage.getItem('basemap');
   if (saved && BASEMAPS[saved]) current = saved;
 } catch (e) {}
+// A shared link (js/tools.js) can set the base map and the view
+const SHARED = parseShareHash();
+if (SHARED && SHARED.base && BASEMAPS[SHARED.base]) current = SHARED.base;
 
 // --- Layers that must survive base map switches ---------------------------
 // setStyle() wipes all custom sources/layers, so register them here:
@@ -68,8 +71,7 @@ async function setBasemap(id) {
     container: 'map',
     style,
     // Start with all of Europe in view, whatever the screen size
-    bounds: [[-25, 34], [45, 72]],
-    fitBoundsOptions: { padding: 20 },
+    ...(SHARED ? SHARED.view : { bounds: [[-25, 34], [45, 72]], fitBoundsOptions: { padding: 20 } }),
     minZoom: 2,
     maxZoom: 18,
     maxPitch: 60,
@@ -133,6 +135,7 @@ async function setBasemap(id) {
   initHistory(map);    // History button, js/history.js
   initBorders(map);    // Historical Borders button, js/borders.js
   initMyVideos(map);
+  initTools(map);      // Measure + Share link, js/tools.js
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => {

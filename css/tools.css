@@ -1,0 +1,34 @@
+/* Measure + Share link (js/tools.js). The buttons reuse the .basemap-switch look. */
+.tools-switch { flex-direction: column; margin-top: 10px; }
+.tools-switch button + button { border-left: 0; border-top: 1px solid #333; }
+.tools-switch button { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; }
+
+.measure-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 30;
+  box-sizing: border-box;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: rgba(22, 22, 22, .98);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .6);
+  font: 12.5px/1.4 system-ui, sans-serif;
+  color: #ddd;
+}
+.measure-panel[hidden] { display: none; }
+.measure-modes { display: flex; margin-bottom: 8px; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+.measure-modes button { flex: 1; padding: 6px 0; border: 0; background: transparent; color: #bbb; font: 600 12.5px/1 system-ui, sans-serif; cursor: pointer; }
+.measure-modes button + button { border-left: 1px solid #333; }
+.measure-modes button.active { background: rgba(201, 162, 75, .18); color: #e0bc62; }
+.measure-readout { white-space: pre-line; font: 600 14px/1.5 system-ui, sans-serif; color: #fff; }
+.measure-hint { margin: 2px 0 10px; font-size: 11.5px; color: #8a8a92; }
+.measure-actions { display: flex; gap: 6px; }
+.measure-actions button { padding: 6px 12px; border: 1px solid #333; border-radius: 6px; background: #1c1c1c; color: #ddd; font: 600 12.5px/1 system-ui, sans-serif; cursor: pointer; }
+.measure-actions button:hover { border-color: #555; }
+.measure-actions .measure-close { margin-left: auto; }
+.measure-panel button:focus-visible, .tools-switch button:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }

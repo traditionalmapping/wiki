@@ -438,3 +438,38 @@
 .vrow:hover .vrow-thumb video { transform: scale(1.06); }
 .myv-storage .myv-status { margin-top: 10px; }
 .myv-storage .vpanel-empty { padding: 24px 8px; }
+
+/* ---------- Video Settings > Edit Timestamps ---------- */
+.myv-vs { box-sizing: border-box; border: 1px solid #2a2a2a; border-radius: 8px; padding: 7px 9px; }
+.myv-vs-sum { cursor: pointer; font-weight: 600; font-size: 12.5px; color: #ddd; }
+.myv-vs[open] > .myv-vs-sum { margin-bottom: 8px; }
+.myv-ts-head { margin-bottom: 4px; }
+.myv-ts-btns { display: flex; gap: 4px; }
+.myv-ts-btn { width: 24px; height: 24px; padding: 0; border: 1px solid #333; border-radius: 50%; background: #1c1c1c; color: #ddd; text-align: center; line-height: 22px; }
+.myv-ts-info[hidden], .myv-ts-list[hidden] { display: none; }
+.myv-ts-list { display: flex; flex-direction: column; gap: 6px; }
+.myv-ts-row { display: flex; flex-direction: column; gap: 5px; padding: 6px 7px; border-radius: 6px; background: rgba(255, 255, 255, .03); }
+.myv-ts-line { display: flex; align-items: center; gap: 6px; }
+.myv-ts-ad { font-size: 11px; color: #9a9aa2; }
+.myv-form .myv-ts-row input.myv-ts-in,
+.myv-form .myv-ts-row select.myv-ts-in {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid #ddd;
+  border-radius: 0;
+  background: transparent;
+  color: #f0f0f2;
+  color-scheme: dark;
+  font: 600 12.5px/1.3 system-ui, sans-serif;
+  text-align: center;
+}
+.myv-form .myv-ts-row select.myv-ts-in { flex: 1; width: auto; text-align: left; }
+.myv-form .myv-ts-row select.myv-ts-in option { background: #161616; color: #eee; }
+.myv-ts-in.ts-d, .myv-ts-in.ts-h, .myv-ts-in.ts-mi { width: 26px !important; flex: none; }
+.myv-ts-in.ts-y { width: 42px !important; flex: none; }
+.myv-ts-in.ts-t { flex: 1; width: auto !important; margin-left: 6px; }
+.myv-form .myv-ts-row input.myv-ts-in:focus-visible,
+.myv-form .myv-ts-row select.myv-ts-in:focus-visible { outline: 0; border-bottom-color: #e0bc62; }

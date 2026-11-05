@@ -147,6 +147,20 @@ body.menu-open .crosshair { visibility: hidden; }
   color: #777;
 }
 
+.menu-disclaimer {
+  box-sizing: border-box;
+  max-width: 460px;
+  margin: -14px auto 28px;
+  padding: 10px 14px;
+  border: 1px solid rgba(201, 162, 75, .4);
+  border-radius: 8px;
+  background: rgba(201, 162, 75, .08);
+  font: 12.5px/1.5 system-ui, sans-serif;
+  color: #c9c9d0;
+  text-align: center;
+}
+.menu-disclaimer strong { color: #d8b45f; }
+
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
