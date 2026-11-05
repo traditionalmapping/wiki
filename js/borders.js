@@ -197,7 +197,8 @@ class BordersControl {
   // Loads the file for the selected year, with a clear message if something is wrong.
   async load() {
     const year = this.year;
-    this.say('');
+    // The old message stays on screen until the new result is known. Clearing it here made the
+    // bottom-left stack shrink and grow again on every year change, which shoved the video list around.
 
     if (!this.cache[year]) {
       if (location.protocol === 'file:') {
@@ -221,6 +222,7 @@ class BordersControl {
 
     if (year !== this.year) return;   // another year was clicked while loading
     this.show(this.cache[year]);
+    this.say('');
   }
 
   show(data) {
