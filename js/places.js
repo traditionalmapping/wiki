@@ -243,5 +243,33 @@ const PLACES = [
     videos: [
       { title: 'WWII - The Slovak National Uprising/Slovenské Národné Povstanie (1944): Every Day', url: 'https://www.youtube.com/watch?v=8hTTudGkePo', date: '1944-08-29 / 1944-10-28' }       
     ]
-  }
+  },
+  {
+    coords: '45.75930, 126.62763',
+    name: 'Harbin',
+    videos: [
+      { title: 'Soviet Invasion of Manchuria/Manchurian Operation 八月暴风行动: Every Day', url: 'https://www.youtube.com/watch?v=8RPy6MIUXsA', date: '1945-08-08 / 1945-11-03' }       
+    ]
+  },
+  {
+    coords: '37.56670, 126.97831',
+    name: 'Seoul',
+    videos: [
+      { title: 'Liberation of Korea Everyday', url: 'https://www.youtube.com/watch?v=_Q9TMgEcDkE', date: '1945-08-01 / 1945-12-31' }       
+    ]
+  },
+  {
+    coords: '25.38339, 97.40017',
+    name: 'Myitkyina',
+    videos: [
+      { title: 'WWII - Burma Theater: Northern Burma Campaign: Every Day (1943-1945)', url: 'https://www.youtube.com/watch?v=on97qFZNTIw', date: '1943-10-28 / 1945-02-08' }       
+    ]
+  },
+  {
+    coords: '16.79714, 96.15940',
+    name: 'Yangon',
+    videos: [
+      { title: 'WWII - Burma Theater: Japanese Invasion of Burma (1942): Every Day', url: 'https://www.youtube.com/watch?v=gq0OQLTCgYI', date: '1941-12-11 / 1942-05-02' }       
+    ]
+  },
 ];
