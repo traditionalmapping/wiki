@@ -198,23 +198,38 @@ function myvFracToDate(it, frac, dur) {
   return myvIso(snap(myvTimeToMs(pts, frac * dur) / 86400000) * 86400000);
 }
 
-// The part of the video (seconds) that shows one calendar day: { from, to }.
-// null when that day is not inside the video's timeline.
-function myvDaySegment(pts, dayMs, dur) {
-  const DAY = 86400000;
+// The part of the video (seconds) that shows a span of time starting at dayMs (one calendar day,
+// or `span` ms): { from, to }. null when none of that span is inside the video's timeline.
+function myvDaySegment(pts, dayMs, dur, span) {
+  const DAY = span || 86400000;
+  let from = Infinity, to = -Infinity;
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i];
     if (a.ms === b.ms) continue;
     const lo = Math.min(a.ms, b.ms), hi = Math.max(a.ms, b.ms);
-    if (!(dayMs + DAY > lo && dayMs <= hi)) continue;          // this stretch does not touch that day
+    if (!(dayMs + DAY > lo && dayMs <= hi)) {            // this stretch does not touch the span
+      if (to > -Infinity) break;                         // only the first unbroken run of stretches counts
+      continue;
+    }
     const tAt = ms => a.t + (ms - a.ms) / (b.ms - a.ms) * (b.t - a.t);
     const t1 = tAt(Math.max(dayMs, lo)), t2 = tAt(Math.min(dayMs + DAY, hi));
-    let from = Math.min(t1, t2), to = Math.max(t1, t2);
-    if (dur > 0) { from = Math.min(Math.max(from, 0), dur); to = Math.min(Math.max(to, 0), dur); }
-    if (to - from < 0.5) from = Math.max(0, to - 1);           // the very last day: keep a short piece to show
-    return { from, to };
+    from = Math.min(from, t1, t2);
+    to = Math.max(to, t1, t2);
   }
-  return null;
+  if (to === -Infinity) return null;
+  if (dur > 0) { from = Math.min(Math.max(from, 0), dur); to = Math.min(Math.max(to, 0), dur); }
+  if (to - from < 0.5) from = Math.max(0, to - 1);       // the very last day: keep a short piece to show
+  return { from, to };
+}
+
+// The dates a video covers, in ms: { a, b }, or null when it has no dates.
+function myvDateRange(it) {
+  if (Array.isArray(it.stamps) && it.stamps.length >= 2) {
+    const ms = it.stamps.map(s => myvUtc(s.y, s.m, s.d, s.h, s.mi)).filter(isFinite);
+    return ms.length >= 2 ? { a: Math.min(...ms), b: Math.max(...ms) } : null;
+  }
+  const a = myvDay(it.startDate), b = myvDay(it.endDate);
+  return isFinite(a) && isFinite(b) && b > a ? { a, b } : null;
 }
 
 // ---------- placing a video by hand: the video is a rectangle (centre, size, angle) ----------
@@ -565,6 +580,13 @@ class MyVideosControl {
     this.pendingGeo = null;      // a georeference .json chosen in the form, waiting for "Add to map"
     this.segs = new Map();       // id -> { from, to, day, it }: a picked date plays only that day's part of the video
     this.segRaf = 0;
+    this.follow = true;          // videos with dates follow the date slider (bottom center)
+    try { if (localStorage.getItem('myvFollow') === '0') this.follow = false; } catch (e) { /* storage blocked */ }
+    this.onSlider = () => {      // the slider moved: re-sync every video (a short delay while it is being dragged)
+      clearTimeout(this.followTimer);
+      this.followTimer = setTimeout(() => this.followAll(), 120);
+    };
+    document.addEventListener('situationdatechange', this.onSlider);
   }
 
   onAdd() {
@@ -590,6 +612,15 @@ class MyVideosControl {
     closeBtn.addEventListener('click', () => { this.setOpen(false); this.toggle.focus(); });
     head.append(closeBtn);
     panel.append(head);
+    const followRow = myvEl('label', 'myv-follow');
+    followRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;font:13px system-ui,sans-serif;color:#ddd;cursor:pointer';
+    const followBox = document.createElement('input');
+    followBox.type = 'checkbox';
+    followBox.checked = this.follow;
+    followBox.addEventListener('change', () => this.setFollow(followBox.checked));
+    followRow.append(followBox, 'Videos follow the date slider');
+    followRow.title = 'A video with dates shows only the part for the slider date, and hides when it has no footage for it';
+    panel.append(followRow);
     panel.addEventListener('keydown', e => {
       if (e.key === 'Escape') { this.setOpen(false); this.toggle.focus(); }
     });
@@ -715,6 +746,8 @@ class MyVideosControl {
   onRemove() {
     if (this.gr) this.endGeoref(false);
     cancelAnimationFrame(this.segRaf);
+    clearTimeout(this.followTimer);
+    document.removeEventListener('situationdatechange', this.onSlider);
     this.grModal.remove();
     this.media.forEach((m, id) => this.disposeMedia(id));
     this.urls.forEach(u => URL.revokeObjectURL(u));
@@ -795,7 +828,8 @@ class MyVideosControl {
       if (map.getLayer(lid)) map.removeLayer(lid);
       if (map.getSource(sid)) map.removeSource(sid);
       this.meshLayers.delete(it.id);
-      if (!it.visible) {
+      it._offDate = this.outsideDate(it, this.currentSliderDate());   // no footage for the slider's date
+      if (!it.visible || it._offDate) {
         const hidden = this.media.get(it.id);
         if (hidden) hidden.video.pause();            // no need to keep decoding a hidden video
         return;
@@ -837,6 +871,8 @@ class MyVideosControl {
     if (v._myvBound) return;
     v._myvBound = true;
     this.ensureTick();
+    v.addEventListener('loadedmetadata', () => this.followOne(it));
+    if (v.readyState >= 1) setTimeout(() => this.followOne(it), 0);
     const sync = () => this.syncTimeline(it, v);
     ['timeupdate', 'play', 'pause', 'loadedmetadata', 'seeked'].forEach(ev => v.addEventListener(ev, sync));
   }
@@ -851,7 +887,7 @@ class MyVideosControl {
     ui.slider.value = String(Math.round(frac * 1000));
     myvFill(ui.slider);
     const seg = this.segs.get(it.id);
-    if (ui.dateIn && document.activeElement !== ui.dateIn) ui.dateIn.value = seg ? seg.day : myvFracToDate(it, frac, v.duration);
+    if (ui.dateIn && document.activeElement !== ui.dateIn) ui.dateIn.value = seg && seg.day ? seg.day : myvFracToDate(it, frac, v.duration);
     if (ui.timeEl) ui.timeEl.textContent = myvClock(v.currentTime) + ' / ' + myvClock(v.duration);
   }
 
@@ -1000,7 +1036,7 @@ class MyVideosControl {
   segTick() {
     this.segRaf = 0;
     this.items.forEach(it => {
-      if (!it.visible) return;
+      if (!it.visible || it._offDate) return;
       const v = this.videoOf(it);
       if (!v || v.seeking || !isFinite(v.duration) || !v.duration) return;
       const r = this.rangeOf(it, v.duration);
@@ -1017,8 +1053,85 @@ class MyVideosControl {
     const ui = this.ui.get(it.id);
     if (!ui || !ui.rangeEl) return;
     const seg = this.segs.get(it.id);
-    ui.rangeEl.textContent = seg ? 'Only ' + seg.day + ' (' + myvClock(seg.from) + '\u2013' + myvClock(seg.to) + ')' : ui.rangeText;
-    ui.allBtn.hidden = !seg;
+    const label = d => (typeof situationDateLabel === 'function' ? situationDateLabel(d) : d);
+    let text = ui.rangeText;
+    if (it._offDate) text = 'Hidden \u00B7 no footage on ' + label(this.currentSliderDate());
+    else if (seg && seg.follow) text = 'Slider \u00B7 ' + label(seg.follow) + ' (' + myvClock(seg.from) + '\u2013' + myvClock(seg.to) + ')';
+    else if (seg) text = 'Only ' + seg.day + ' (' + myvClock(seg.from) + '\u2013' + myvClock(seg.to) + ')';
+    ui.rangeEl.textContent = text;
+    ui.allBtn.hidden = !seg || !!it._offDate;
+  }
+
+  // ---------- videos follow the date slider ----------
+  currentSliderDate() { return typeof selectedSituationDate === 'string' ? selectedSituationDate : null; }
+
+  // The slider moves in steps: a step runs from its date to the next slider date.
+  stepSpan(date) {
+    const i = SITUATION_DATES.indexOf(date);
+    const a = myvDay(date);
+    const b = i >= 0 && i < SITUATION_DATES.length - 1 ? myvDay(SITUATION_DATES[i + 1]) : a + 86400000;
+    return { a, b };
+  }
+
+  // true when the video has dates but none of them fall inside the slider's current step
+  outsideDate(it, date) {
+    if (!this.follow || !date || this.gr) return false;     // not while a video is being georeferenced
+    const r = myvDateRange(it);
+    if (!r || typeof SITUATION_DATES === 'undefined') return false;
+    const s = this.stepSpan(date);
+    return !(s.b > r.a && s.a <= r.b);
+  }
+
+  followAll() { this.items.forEach(it => this.followOne(it)); }
+
+  // Shows a video only on the slider dates it has footage for, and plays only that part of it
+  followOne(it) {
+    const date = this.currentSliderDate();
+    if (!date || !it.visible) return;
+    const off = this.outsideDate(it, date);
+    if (!!it._offDate !== off) { it._offDate = off; this.drawOne(it); }     // appears / disappears
+    const prev = this.segs.get(it.id);
+    if (off || !this.follow) {
+      if (prev && prev.follow) this.clearSegment(it);
+      this.syncSegUi(it);
+      return;
+    }
+    if (!myvDateRange(it)) return;                          // no dates: nothing to follow
+    const v = this.videoOf(it);
+    if (!v || !isFinite(v.duration) || !v.duration) return;  // done again when its length is known
+    const pts = myvPoints(it, v.duration);
+    if (!pts) return;
+    const s = this.stepSpan(date);
+    const seg = myvDaySegment(pts, s.a, v.duration, s.b - s.a);
+    if (!seg) return;
+    const same = prev && prev.follow === date && Math.abs(prev.from - seg.from) < 0.01 && Math.abs(prev.to - seg.to) < 0.01;
+    this.setSegment(it, { from: seg.from, to: seg.to, day: null, follow: date });
+    if (same && v.currentTime >= seg.from - 0.3 && v.currentTime <= seg.to + 0.3) return;
+    clearTimeout(v._myvPause);
+    v.currentTime = seg.from;
+    const p = v.play();
+    if (p && p.catch) p.catch(() => {});
+  }
+
+  setFollow(on) {
+    this.follow = on;
+    try { localStorage.setItem('myvFollow', on ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    this.items.forEach(it => {
+      const seg = this.segs.get(it.id);
+      if (!on && seg && seg.follow) this.clearSegment(it);
+      if (it.visible) { if (on) this.followOne(it); else if (it._offDate) this.drawOne(it); }
+      this.syncSegUi(it);
+    });
+  }
+
+  // Ticking a video that has no footage for the slider's date moves the slider to the video's dates
+  alignSlider(it) {
+    const tl = window.situationTimeline;
+    const r = myvDateRange(it);
+    if (!tl || !r || !this.outsideDate(it, this.currentSliderDate())) return;
+    let target = SITUATION_DATES[0];
+    for (const d of SITUATION_DATES) if (myvDay(d) <= r.a) target = d;
+    tl.setDate(target);
   }
 
   redrawAll() { this.items.forEach(it => this.drawOne(it)); }
@@ -1026,7 +1139,7 @@ class MyVideosControl {
   allDrawn() {
     return this.items.every(it => {
       const m = this.media.get(it.id);
-      return !it.visible || this.map.getLayer(myvLayerId(it.id)) || (m && m.pending);
+      return !it.visible || it._offDate || this.map.getLayer(myvLayerId(it.id)) || (m && m.pending);
     });
   }
 
@@ -1647,7 +1760,7 @@ class MyVideosControl {
     const m = this.media.get(it.id) || this.makeMedia(it);
     const add = () => {
       m.pending = false;
-      if (!it.visible || !m.alive || map.getLayer(lid)) return;
+      if (!it.visible || it._offDate || !m.alive || map.getLayer(lid)) return;
       try {
         if (map.getSource(sid)) map.removeSource(sid);
         map.addSource(sid, { type: 'canvas', canvas: m.canvas, coordinates: it.corners, animate: false });
@@ -1919,6 +2032,7 @@ class MyVideosControl {
     vis.title = 'Show on the map';
     vis.addEventListener('change', async () => {
       it.visible = vis.checked;
+      if (it.visible) this.alignSlider(it);
       this.drawOne(it);
       if (it.library && it.visible && !it._flown) { it._flown = true; this.flyTo(it); }   // show where it is, once
       await this.save(it);
@@ -2135,6 +2249,7 @@ class MyVideosControl {
     await this.ready;
     const existing = this.items.find(x => x.linked && x.videoUrl === videoUrl);
     if (existing) {
+      this.alignSlider(existing);
       if (!existing.visible) {
         existing.visible = true;
         this.drawOne(existing);
@@ -2168,6 +2283,7 @@ class MyVideosControl {
     it._flown = true;
     this.items.push(it);
     this.prepareWarp(it);
+    this.alignSlider(it);
     this.drawOne(it);
     this.renderList();
     this.flyTo(it);
@@ -2462,6 +2578,7 @@ class MyVideosControl {
       it._flown = true;
       this.items.push(it);
       this.prepareWarp(it);
+      this.alignSlider(it);
       this.drawOne(it);
       this.resetForm();
       this.flyTo(it);
@@ -2520,6 +2637,7 @@ class MyVideosControl {
       this.prepareWarp(item);
       redo = false;
     }
+    this.alignSlider(item);
     this.drawOne(item);
     const saved = await this.save(item);
     const wasEditing = !!editing;

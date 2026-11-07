@@ -1,0 +1,45 @@
+/* ============================================================================
+   Phone / touch layout. Loaded LAST, so it only overrides css/style.css.
+   Breakpoint: 700px wide. Touch tweaks apply to any touch screen.
+   ========================================================================== */
+
+/* Year labels: 1939 and 1940 are only 4 months apart and used to run together ("19391940") */
+.timeline-tick[data-year="1939"] { transform: translateX(-72%); }
+.timeline-tick[data-year="1940"] { transform: translateX(-28%); }
+
+@media (max-width: 700px) {
+  /* Row 1: Dark/OSM + search (+ zoom buttons). Row 2: coordinates. Video list starts below both. */
+  .search { width: min(240px, calc(100vw - 160px)); }
+  .coords { top: 54px; left: 10px; right: auto; font-size: 12px; }
+  .vpanel {
+    top: 96px;
+    max-height: max(120px, calc(100vh - 96px - var(--bl-height, 150px) - 12px));
+  }
+  @supports (height: 100dvh) {      /* 100vh is taller than the visible page under a phone's address bar */
+    .vpanel { max-height: max(120px, calc(100dvh - 96px - var(--bl-height, 150px) - 12px)); }
+  }
+
+  /* Date slider: full width; the note keeps two lines so the box never changes height */
+  .timeline { width: calc(100vw - 20px); padding: 8px 12px 6px; }
+  .timeline-note { font-size: 11px; line-height: 1.25; min-height: 2.5em; }
+
+  /* Narrow slider: use short year labels (’39 ’40 ...) */
+  .timeline-tick { font-size: 0; padding: 8px 2px; }
+  .timeline-tick::after { content: attr(data-short); font-size: 11px; }
+
+  .watermark { width: 36px !important; height: 36px !important; }
+}
+
+@media (pointer: coarse) {
+  /* 16px stops iPhones from zooming the page when a box is tapped */
+  .search input, .vpanel-search, .history-panel select { font-size: 16px; }
+
+  /* Bigger touch targets */
+  .basemap-switch button, .coords button, .history-toggle { min-height: 40px; }
+  .timeline-slider { height: 28px; touch-action: none; }
+  .timeline-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; }
+  .timeline-slider::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -9px; }
+  .timeline-slider::-moz-range-thumb { width: 24px; height: 24px; }
+  .timeline-ticks { height: 32px; margin-top: 2px; }
+  .timeline-tick { left: calc(12px + (100% - 24px) * var(--pos)); padding: 9px 4px; }
+}

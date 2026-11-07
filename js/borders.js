@@ -271,6 +271,7 @@ class YearSlider {
       b.className = 'timeline-tick';
       b.textContent = y;
       b.dataset.year = y;
+      b.dataset.short = '\u2019' + String(y).slice(2);   // short label for narrow screens
       const position = borderMonthIndex(borderIsoDate(y)) - firstSituationMonth;
       b.style.setProperty('--pos', last ? position / last : 0);
       b.addEventListener('click', () => this.setDate(borderIsoDate(y)));
@@ -309,7 +310,9 @@ function initBorders(map) {
   const control = new BordersControl(map);
   map.addControl(control, 'bottom-left');
   // The date slider lives at the bottom center of the screen (see .timeline in css/style.css).
-  new YearSlider(() => control.onYear()).mount();
+  const yearSlider = new YearSlider(() => control.onYear());
+  yearSlider.mount();
+  window.situationTimeline = yearSlider;   // js/datesearch.js moves the slider through this
   onStyleReady(() => control.apply()); // keep the outline when the base map changes
 
   // Safety net: some base map switches update the style in place and never fire
