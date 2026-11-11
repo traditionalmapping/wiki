@@ -20,6 +20,10 @@
 //    'open'     shows on the Board
 //    'planned'  shows on the Board with a "Planned" badge
 //    'done'     shows on the Board with a "Done" badge
+//    'rejected' shows on the Board with a "Rejected" badge (no more votes)
+//  Optional: on a rejected suggestion add a text field named  reason  in the
+//  console. The Board then shows it under the suggestion. Leave it out and
+//  nothing extra is shown.
 //  To remove one, delete the document.
 //
 //  While projectId is empty the Suggest button stays hidden.
@@ -39,8 +43,8 @@ const SUGGEST_HINTS = {
   Feature: 'What would make the site better?',
   Bug: 'What went wrong, and on which device?'
 };
-const SUGGEST_VISIBLE = ['open', 'planned', 'done'];
-const SUGGEST_BADGE = { planned: 'Planned', done: 'Done' };
+const SUGGEST_VISIBLE = ['open', 'planned', 'done', 'rejected'];
+const SUGGEST_BADGE = { planned: 'Planned', done: 'Done', rejected: 'Rejected' };
 
 // ---------------------------------------------------------------------------
 //  Everything below is code. You normally don't need to edit it.
@@ -301,8 +305,9 @@ function initSuggest(map) {
         vote.setAttribute('aria-label', 'Upvote');
         const markVoted = () => { vote.classList.add('on'); vote.disabled = true; };
         if (voted.has(s.id)) markVoted();
+        if (s.status === 'rejected') vote.disabled = true;
         vote.addEventListener('click', async () => {
-          if (voted.has(s.id)) return;
+          if (voted.has(s.id) || s.status === 'rejected') return;
           voted.add(s.id);
           store.set('sg-voted', Array.from(voted));
           s.votes = (s.votes || 0) + 1;
@@ -326,6 +331,11 @@ function initSuggest(map) {
         meta.append(el('span', 'sg-tag', s.category || 'Idea'));
         if (SUGGEST_BADGE[s.status]) meta.append(el('span', 'sg-badge ' + s.status, SUGGEST_BADGE[s.status]));
         main.append(meta, el('div', 'sg-item-text', s.text || ''));
+        if (s.status === 'rejected' && typeof s.reason === 'string' && s.reason.trim()) {
+          const why = el('div', 'sg-reason');
+          why.append(el('strong', null, 'Reason: '), document.createTextNode(s.reason.trim()));
+          main.append(why);
+        }
 
         const foot = el('div', 'sg-item-foot');
         if (s.name) foot.append(el('span', 'sg-by', 'by ' + s.name));
@@ -370,6 +380,7 @@ function initSuggest(map) {
         .then(snap => {
           boardCache = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
           boardCache.sort((a, b) =>
+            (a.status === 'rejected') - (b.status === 'rejected') ||
             (b.votes || 0) - (a.votes || 0) ||
             ((b.created && b.created.seconds) || 0) - ((a.created && a.created.seconds) || 0));
           if (tab === 'board') draw();
