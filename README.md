@@ -124,7 +124,7 @@ Separate multiple entries with commas. After the site is published, visitors can
 - **Nothing changed in the browser.** Refresh the page (Ctrl+F5) to clear the cache.
 
 If a place doesn't appear, open the browser console (F12). It prints a warning such as `Place #3: bad coords`.
-
+ 
 ## Files
 
 | File                | Purpose                                              |
