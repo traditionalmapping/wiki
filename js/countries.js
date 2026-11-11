@@ -1186,13 +1186,22 @@ function initCountries(map, panelRoot, goTo) {
   countryCount.textContent = String(items.length);
   if (videoCount) videoCount.after(countryCount);
 
+  // Events get their own list and map markers (js/eventmarkers.js)
+  const eventsApi = (typeof initEventsPanel === 'function') ? initEventsPanel(map, panelRoot, goTo) : null;
+
+  // One button: each click goes to the next mode (Videos -> Countries -> Events -> Videos)
   const toggle = mk('button', 'cmode');
   toggle.type = 'button';
-  const vWord = mk('span');
-  vWord.textContent = 'Videos';
-  const cWord = mk('span');
-  cWord.textContent = 'Countries';
-  toggle.append(vWord, ' / ', cWord);
+  const MODES = [['videos', 'Videos'], ['countries', 'Countries']];
+  if (eventsApi) MODES.push(['events', 'Events']);
+  const words = {};
+  MODES.forEach(([key, label], i) => {
+    if (i) toggle.append(' / ');
+    const w = mk('span');
+    w.textContent = label;
+    words[key] = w;
+    toggle.append(w);
+  });
   const videoTools = panelRoot.querySelector('.vpanel-tools');
   panelRoot.insertBefore(toggle, videoTools);
 
@@ -1313,17 +1322,24 @@ function initCountries(map, panelRoot, goTo) {
 
   // ----- switching -----
   let mode = 'videos';
+  const TITLES = { videos: 'Videos', countries: 'Countries', events: 'Events' };
   const setMode = m => {
     mode = m;
-    const on = m === 'countries';
-    panelRoot.classList.toggle('mode-countries', on);
-    map.getContainer().classList.toggle('countries-mode', on);
-    if (title) title.textContent = on ? 'Countries' : 'Videos';
-    vWord.classList.toggle('on', !on);
-    cWord.classList.toggle('on', on);
-    toggle.setAttribute('aria-label', on ? 'Switch to Videos' : 'Switch to Countries');
-    if (on) startFlags(); else stopFlags();
+    const box = map.getContainer();
+    panelRoot.classList.toggle('mode-countries', m === 'countries');
+    box.classList.toggle('countries-mode', m === 'countries');
+    panelRoot.classList.toggle('mode-events', m === 'events');
+    box.classList.toggle('events-mode', m === 'events');
+    if (title) title.textContent = TITLES[m];
+    Object.entries(words).forEach(([k, w]) => w.classList.toggle('on', k === m));
+    const next = MODES[(MODES.findIndex(x => x[0] === m) + 1) % MODES.length];
+    toggle.setAttribute('aria-label', 'Switch to ' + next[1]);
+    if (m === 'countries') startFlags(); else stopFlags();
+    if (eventsApi) eventsApi.setActive(m === 'events');
   };
-  toggle.addEventListener('click', () => setMode(mode === 'videos' ? 'countries' : 'videos'));
+  toggle.addEventListener('click', () => {
+    const i = MODES.findIndex(x => x[0] === mode);
+    setMode(MODES[(i + 1) % MODES.length][0]);
+  });
   setMode('videos');
 }

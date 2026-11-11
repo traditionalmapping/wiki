@@ -979,24 +979,13 @@ class MyVideosControl {
         const pts = myvPoints(it, v.duration);
         if (!pts) return;
         ui.holdUntil = Date.now() + 400;
-        const seg = myvDaySegment(pts, d, v.duration);
-        if (seg) {                                       // play only the part of the video that shows this day
-          this.setSegment(it, Object.assign(seg, { day: myvIso(d) }));
-          slider.value = String(Math.round(seg.from / v.duration * 1000));
-          myvFill(slider);
-          dateIn.value = myvIso(d);
-          clearTimeout(v._myvPause);
-          v.currentTime = seg.from;
-          const p = v.play();
-          if (p && p.catch) p.catch(() => {});
-          return;
-        }
-        this.clearSegment(it);                           // a date outside the video: jump to the nearest end
-        const frac = Math.min(1, Math.max(0, myvMsToTime(pts, d) / v.duration));
+        this.clearSegment(it);                           // a picked date only jumps there: the video does not play
+        const frac = Math.min(1, Math.max(0, myvMsToTime(pts, d) / v.duration));   // dates outside the video go to its nearest end
         slider.value = String(Math.round(frac * 1000));
         myvFill(slider);
         dateIn.value = myvFracToDate(it, frac, v.duration);
         this.seekTo(v, frac);
+        if (v._myvCropped) v.pause();                    // cropped / curved videos are not paused by seekTo
       });
     }
 
@@ -1005,7 +994,7 @@ class MyVideosControl {
     return tl;
   }
 
-  // ---------- a picked date plays only that day's part of the video ----------
+  // ---------- the part of a video that is allowed to play (set by the date slider) ----------
   setSegment(it, seg) {
     this.segs.set(it.id, { from: seg.from, to: seg.to, day: seg.day, it });
     this.syncSegUi(it);

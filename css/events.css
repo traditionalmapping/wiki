@@ -1,0 +1,92 @@
+/* ---------- Historical event markers ---------- */
+/* MapLibre positions markers itself (position: absolute + transform), so do NOT set
+   position/transform on .event-marker. The diamond is drawn on ::before instead. */
+.event-marker {
+  display: none;                  /* shown only in Events mode */
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.event-marker::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border: 1.5px solid rgba(14, 14, 14, .85);
+  background: rgba(201, 162, 75, .8);
+  transform: rotate(45deg);
+  transition: background .15s ease, transform .15s ease;
+}
+.event-marker::after {            /* bigger invisible click area */
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.event-marker:hover::before { background: #ffd34d; transform: rotate(45deg) scale(1.3); }
+.event-marker:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 4px; }
+
+.event-popup-wrap .maplibregl-popup-content {
+  padding: 12px 14px;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .5);
+}
+.event-popup-wrap.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.event-popup-wrap.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.event-popup-wrap.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: #1c1c1c; }
+.event-popup-wrap.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.event-popup-wrap.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.event-popup-wrap.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #1c1c1c; }
+.event-popup-wrap.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #1c1c1c; }
+.event-popup-wrap.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #1c1c1c; }
+.event-popup-wrap .maplibregl-popup-close-button { color: #bbb; font-size: 18px; padding: 2px 8px; }
+.event-popup-wrap .maplibregl-popup-close-button:hover { background: transparent; color: #fff; }
+
+.event-date { color: #c9a24b; font-weight: 700; font-size: 12px; letter-spacing: .03em; margin-bottom: 4px; }
+.event-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; padding-right: 14px; }
+.event-desc { color: #ccc; }
+
+/* ---------- Events mode (Videos / Countries / Events switch) ---------- */
+.events-mode .event-marker { display: block; }
+.events-mode .place { display: none; }            /* hide the video panels */
+
+/* what the left panel shows in each mode */
+.vpanel.mode-events > .vpanel-tools,
+.vpanel.mode-events > .vpanel-list:not(.elist),
+.vpanel.mode-events .vpanel-head > .vmodal-count:not(.events-count) { display: none; }
+.vpanel:not(.mode-events) > .etools,
+.vpanel:not(.mode-events) > .elist,
+.vpanel:not(.mode-events) .events-count { display: none; }
+.vpanel.collapsed .etools { display: none; }
+
+.etools { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; }
+
+/* ---------- Event list (left panel) ---------- */
+.erow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  transition: background .15s ease;
+}
+.erow:hover { background: rgba(255, 255, 255, .05); }
+.erow-date { color: #c9a24b; font: 700 11.5px/1.2 system-ui, sans-serif; letter-spacing: .03em; }
+.erow-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f0f0f2;
+  font: 600 13px/1.3 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.erow-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.erow-title:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+.cfolder.efolder .cfolder-head { color: #c9a24b; }

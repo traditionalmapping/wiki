@@ -131,11 +131,13 @@ async function setBasemap(id) {
   });
 
   addVideoPlaces(map); // panels from js/places.js
+  initEventMarkers(map);   // historical events, js/eventmarkers.js
   initContinents(map);
   initHistory(map);    // History button, js/history.js
   initBorders(map);    // Historical Borders button, js/borders.js
   initMyVideos(map);
   initTools(map);      // Measure + Share link, js/tools.js
+  initSuggest(map);    // Suggest button, js/suggest.js
 
   map.on('style.load', () => styleReadyHandlers.forEach(fn => fn()));
   map.on('error', e => {
