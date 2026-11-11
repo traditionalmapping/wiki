@@ -157,6 +157,9 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, .04);
 }
+.sg-item.rejected { border-color: rgba(240, 135, 123, .45); background: rgba(240, 135, 123, .07); }
+.sg-item.rejected .sg-item-text { color: #c9c9d0; }
+.sg-badge.rejected { border: 1px solid rgba(240, 135, 123, .5); letter-spacing: .04em; text-transform: uppercase; }
 .sg-vote {
   flex: none;
   display: flex;

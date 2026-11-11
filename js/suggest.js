@@ -296,7 +296,7 @@ function initSuggest(map) {
         return;
       }
       rows.forEach(s => {
-        const item = el('div', 'sg-item');
+        const item = el('div', 'sg-item' + (s.status === 'rejected' ? ' rejected' : ''));
 
         const vote = el('button', 'sg-vote');
         vote.type = 'button';
