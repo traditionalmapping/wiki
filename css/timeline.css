@@ -1,0 +1,53 @@
+/* ---------- Date slider: Period button and the second handle ---------- */
+.timeline-head { position: relative; margin-bottom: 8px; }
+.timeline-head .timeline-note { margin: 0; padding: 0 74px; text-align: center; }   /* centered; the button floats at the right */
+.timeline-period-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  border: 1px solid #333;
+  border-radius: 999px;
+  background: #121212;
+  color: #999;
+  font: 600 11px/1 system-ui, sans-serif;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.timeline-period-btn:hover { border-color: #555; color: #ddd; }
+.timeline-period-btn.on { color: #c9a24b; border-color: rgba(201, 162, 75, .5); background: rgba(201, 162, 75, .1); }
+.timeline-period-btn:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
+
+/* The track is drawn here so the highlighted stretch can sit on top of it */
+.timeline-track { position: relative; }
+.timeline-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: #3a3a3a;
+}
+.timeline-track .timeline-slider { position: relative; z-index: 1; }
+.timeline-track .timeline-slider::-webkit-slider-runnable-track { background: transparent; }
+.timeline-track .timeline-slider::-moz-range-track { background: transparent; }
+
+.timeline-fill {
+  position: absolute;
+  top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: #c9a24b;
+  pointer-events: none;
+  left: calc(8px + (100% - 16px) * var(--a, 0));
+  width: calc((100% - 16px) * (var(--b, 0) - var(--a, 0)));
+}
+.timeline-fill[hidden], .timeline-slider-end[hidden] { display: none; }
+
+/* The end handle sits on top of the first slider; only its thumb takes clicks */
+.timeline-track .timeline-slider-end { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; }
+.timeline-slider-end::-webkit-slider-thumb { pointer-events: auto; cursor: pointer; background: #e6c46a; }
+.timeline-slider-end::-moz-range-thumb { pointer-events: auto; cursor: pointer; background: #e6c46a; }

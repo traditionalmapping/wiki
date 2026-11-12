@@ -340,6 +340,62 @@ function parseDate(value) {
   return { key, label: parts.slice(0, 2).filter(x => dateKey(x)).join(' \u2013 ') };
 }
 
+// ---- Date filter: only the videos from the period selected on the date slider ----
+// Uses mapDate() from js/countries.js: the slider's selected date ('YYYY-MM-DD').
+// A video counts when its date range overlaps that month. Videos without a
+// date always show. Reversed ranges and stray spaces in places.js are tolerated.
+const DATE_FILTER_KEY = 'video-date-filter';
+let videoDateFilterOn = (() => {
+  try { return localStorage.getItem(DATE_FILTER_KEY) !== '0'; } catch (e) { return true; }
+})();
+function setVideoDateFilter(on) {
+  videoDateFilterOn = !!on;
+  try { localStorage.setItem(DATE_FILTER_KEY, on ? '1' : '0'); } catch (e) {}
+  document.dispatchEvent(new CustomEvent('videodatefilterchange'));
+}
+
+// '2023' -> '2023-12-31', '2023-05' -> '2023-05-31', '2023-05-14' -> itself
+function dateEndKey(d) {
+  const m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(String(d || '').trim());
+  if (!m) return '';
+  if (m[3]) return m[1] + '-' + m[2] + '-' + m[3];
+  if (m[2]) return m[1] + '-' + m[2] + '-' + String(new Date(Date.UTC(Number(m[1]), Number(m[2]), 0)).getUTCDate()).padStart(2, '0');
+  return m[1] + '-12-31';
+}
+
+// -> { from, to } as 'YYYY-MM-DD', or null when the video has no usable date
+function videoRange(value) {
+  const parts = String(value || '').replace(/\s*-\s*/g, '-')
+    .split(/\s*(?:\/|\bto\b|\u2013|\u2014)\s*/).map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  let from = dateKey(parts[0]);
+  let to = parts[1] ? dateEndKey(parts[1]) : dateEndKey(parts[0]);
+  if (!from) return null;
+  if (!to) to = dateEndKey(parts[0]);
+  if (from > to) { const t = from; from = to; to = t; }   // written the wrong way round
+  return { from, to };
+}
+
+// The period picked on the slider: that month (or that exact day, or the whole
+// year when the site only has yearly border snapshots). null = nothing to filter by.
+function selectedVideoPeriod() {
+  // Period mode on the slider (two handles): the whole period
+  const pr = (typeof selectedPeriodRange === 'function') ? selectedPeriodRange() : null;
+  if (pr) return pr;
+  const d = (typeof mapDate === 'function') ? mapDate() : '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  if (!m) return null;
+  if (typeof selectedSituationDate !== 'string') return { from: m[1] + '-01-01', to: m[1] + '-12-31' };
+  if (m[3] !== '01') return { from: d, to: d };
+  return { from: m[1] + '-' + m[2] + '-01', to: dateEndKey(m[1] + '-' + m[2]) };
+}
+
+function videoInPeriod(range) {
+  const p = selectedVideoPeriod();
+  if (!p || !range) return true;
+  return range.from <= p.to && range.to >= p.from;
+}
+
 // Channel names for YouTube videos: asked from YouTube's public oEmbed once, then kept in the browser
 const AUTHOR_CACHE_KEY = 'yt-authors-v1';
 function loadAuthorCache() {
@@ -389,6 +445,7 @@ function createVideoPanel(entries, goTo) {
         v, pos: en.pos, place, tags, key,
         author: String(v.author || '').trim(),   // written in places.js; otherwise found below
         date: pd.label,
+        range: videoRange(v.date),
         year: key.slice(0, 4),
         idx: items.length
       });
@@ -433,6 +490,22 @@ function createVideoPanel(entries, goTo) {
   search.placeholder = 'Search videos';
   search.setAttribute('aria-label', 'Search videos');
   search.addEventListener('input', () => { state.q = search.value; render(); });
+
+  const dateRow = mk('label', 'vdate-filter');
+  const dateBox = mk('input');
+  dateBox.type = 'checkbox';
+  const dateText = mk('span');
+  dateRow.append(dateBox, dateText);
+  dateBox.addEventListener('change', () => setVideoDateFilter(dateBox.checked));
+  const refreshDateRow = () => {
+    dateBox.checked = videoDateFilterOn;
+    const pr = (typeof selectedPeriodRange === 'function') ? selectedPeriodRange() : null;
+    const month = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const label = pr ? month(pr.from) + ' \u2013 ' + month(pr.to)
+      : ((typeof mapDateLabel === 'function') ? mapDateLabel() : '');
+    dateText.textContent = 'Only videos from the selected ' + (pr ? 'period' : 'date') + (label ? ': ' + label : '');
+  };
+  refreshDateRow();
 
   const grid = mk('div', 'vpanel-grid');
   const control = (label, options, key) => {
@@ -486,7 +559,7 @@ function createVideoPanel(entries, goTo) {
     render();
   });
   status.append(statusText, reset);
-  tools.append(search, grid, status);
+  tools.append(search, dateRow, grid, status);
 
   const list = mk('div', 'vpanel-list');
 
@@ -551,6 +624,7 @@ function createVideoPanel(entries, goTo) {
     const q = state.q.trim().toLowerCase();
     const shown = items
       .filter(it =>
+        (!videoDateFilterOn || videoInPeriod(it.range)) &&
         (!state.author || it.author === state.author) &&
         (!state.tag || it.tags.includes(state.tag)) &&
         (!q || [it.v.title, it.author, it.place, it.date, it.tags.join(' ')].join(' ').toLowerCase().includes(q)))
@@ -559,13 +633,13 @@ function createVideoPanel(entries, goTo) {
     const filtered = shown.length !== total;
     count.textContent = filtered ? shown.length + '/' + total : String(total);
     const changed = Object.keys(DEFAULTS).some(k => state[k] !== DEFAULTS[k]);
-    status.hidden = !changed;
-    statusText.textContent = 'Showing ' + shown.length + ' of ' + total;
+    status.hidden = !changed && !filtered;
+    statusText.textContent = 'Showing ' + shown.length + ' of ' + total + (videoDateFilterOn ? (typeof selectedPeriodRange === 'function' && selectedPeriodRange() ? ' (selected period)' : ' (selected date)') : '');
 
     const frag = document.createDocumentFragment();
     if (!shown.length) {
       const empty = mk('div', 'vpanel-empty');
-      empty.textContent = 'No videos match.';
+      empty.textContent = 'No videos match.' + (videoDateFilterOn ? ' The date filter is on.' : '');
       frag.append(empty);
     } else if (state.group === 'none') {
       shown.forEach(it => frag.append(itemEl(it)));
@@ -598,6 +672,8 @@ function createVideoPanel(entries, goTo) {
   root.append(head, tools, list);
   document.body.append(root);
   render();
+  ['situationdatechange', 'situationperiodchange', 'videodatefilterchange'].forEach(ev =>
+    document.addEventListener(ev, () => { refreshDateRow(); render(true); }));
 
   // YouTube videos without an author in places.js: ask YouTube, then redraw (batched)
   let refreshTimer = null;
@@ -626,6 +702,7 @@ function createVideoPanel(entries, goTo) {
 function addVideoPlaces(map) {
   const modal = createVideoModal();
   const entries = []; // valid places, used for the left-side list
+  const placeViews = []; // the panels on the map, redrawn when the date filter changes
 
   PLACES.forEach((place, i) => {
     const pos = parseLatLng(place.coords);
@@ -633,25 +710,40 @@ function addVideoPlaces(map) {
     const videos = (place.videos || []).filter(v => safeUrl(v.url));
     if (!videos.length) { console.warn('Place #' + (i + 1) + ': no valid video links'); return; }
 
-    const el = buildPlace(
-      videos,
-      from => modal.open(videos, from),
-      () => {
-        if (map.getZoom() < LABEL_MIN_ZOOM) {
-          map.flyTo({ center: [pos.lng, pos.lat], zoom: LABEL_MIN_ZOOM + 1, duration: 1200 });
-        }
+    const onDot = () => {
+      if (map.getZoom() < LABEL_MIN_ZOOM) {
+        map.flyTo({ center: [pos.lng, pos.lat], zoom: LABEL_MIN_ZOOM + 1, duration: 1200 });
       }
-    );
+    };
+    const el = buildPlace(videos, from => modal.open(videos, from), onDot);
     entries.push({ pos, videos, name: place.name });
+    placeViews.push({ el, videos, onDot, key: videos.map((v, k) => k).join(',') });
     new maplibregl.Marker({ element: el, anchor: 'bottom-left' })
       .setLngLat([pos.lng, pos.lat])
       .addTo(map);
   });
 
+  // Show on each map panel only the videos from the selected period
+  const refreshPlaces = () => {
+    placeViews.forEach(pv => {
+      const shown = videoDateFilterOn ? pv.videos.filter(v => videoInPeriod(videoRange(v.date))) : pv.videos;
+      if (!shown.length) { pv.el.style.display = 'none'; return; }
+      pv.el.style.display = '';
+      const key = shown.map(v => pv.videos.indexOf(v)).join(',');
+      if (key === pv.key) return;
+      pv.key = key;
+      const fresh = buildPlace(shown, from => modal.open(shown, from), pv.onDot);
+      pv.el.replaceChildren(...fresh.childNodes);
+    });
+  };
+  ['situationdatechange', 'situationperiodchange', 'videodatefilterchange'].forEach(ev => document.addEventListener(ev, refreshPlaces));
+
   const flyToPos = pos =>
     map.flyTo({ center: [pos.lng, pos.lat], zoom: Math.max(map.getZoom(), LABEL_MIN_ZOOM + 1), duration: 1200 });
   const panelRoot = createVideoPanel(entries, flyToPos);
   if (typeof initCountries === 'function') initCountries(map, panelRoot, flyToPos); // Videos/Countries switch, js/countries.js
+
+  refreshPlaces();
 
   const update = () => map.getContainer().classList.toggle('labels-off', map.getZoom() < LABEL_MIN_ZOOM);
   map.on('zoom', update);

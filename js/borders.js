@@ -42,6 +42,18 @@ const situationDateLabel = date => new Date(date + 'T00:00:00Z').toLocaleDateStr
 });
 let selectedSituationDate = SITUATION_DATES[0];
 let selectedBorderYear = Number(selectedSituationDate.slice(0, 4));
+
+// Period mode (the "Period" button on the slider): a second handle ends the period.
+// null = period mode is off. Otherwise a date from SITUATION_DATES, never before the first handle.
+// Other scripts listen for situationperiodchange, or call selectedPeriodRange().
+let selectedPeriodEnd = null;
+function selectedPeriodRange() {
+  if (!selectedPeriodEnd) return null;
+  const y = Number(selectedPeriodEnd.slice(0, 4));
+  const m = Number(selectedPeriodEnd.slice(5, 7));
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();     // the period includes the whole end month
+  return { from: selectedSituationDate, to: selectedPeriodEnd.slice(0, 8) + String(lastDay).padStart(2, '0') };
+}
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 // How close (in screen pixels) the cursor must be to a border to blur it.
@@ -279,8 +291,66 @@ class YearSlider {
       return b;
     });
 
-    el.append(note, slider, ticks);
+    // Period mode: a second handle turns the date into a period (it filters the videos)
+    const head = document.createElement('div');
+    head.className = 'timeline-head';
+    const periodBtn = this.periodBtn = document.createElement('button');
+    periodBtn.type = 'button';
+    periodBtn.className = 'timeline-period-btn';
+    periodBtn.textContent = 'Period';
+    periodBtn.title = 'Pick a period with two handles';
+    periodBtn.setAttribute('aria-pressed', 'false');
+    periodBtn.addEventListener('click', () => this.setPeriodMode(!selectedPeriodEnd));
+    head.append(note, periodBtn);
+
+    const fill = this.fill = document.createElement('div');
+    fill.className = 'timeline-fill';
+    fill.hidden = true;
+    const endSlider = this.endSlider = document.createElement('input');
+    endSlider.type = 'range';
+    endSlider.className = 'timeline-slider timeline-slider-end';
+    endSlider.min = 0;
+    endSlider.max = last;
+    endSlider.step = 1;
+    endSlider.hidden = true;
+    endSlider.setAttribute('aria-label', 'End of the period');
+    endSlider.addEventListener('input', () => this.setPeriodEnd(SITUATION_DATES[Number(endSlider.value)]));
+
+    const track = document.createElement('div');
+    track.className = 'timeline-track';
+    track.append(fill, slider, endSlider);
+
+    el.append(head, track, ticks);
     document.body.append(el);
+    this.refresh();
+  }
+
+  emitPeriod() {
+    document.dispatchEvent(new CustomEvent('situationperiodchange', { detail: selectedPeriodRange() }));
+  }
+
+  // Turns the second handle on (a year after the first one) or off.
+  setPeriodMode(on) {
+    if (on) {
+      const i = Math.min(SITUATION_DATES.indexOf(selectedSituationDate) + 12, SITUATION_DATES.length - 1);
+      selectedPeriodEnd = SITUATION_DATES[i];
+    } else {
+      selectedPeriodEnd = null;
+    }
+    this.emitPeriod();
+    this.refresh();
+  }
+
+  // Moves the end of the period. Dragging it before the start pushes the start along.
+  setPeriodEnd(date) {
+    if (!selectedPeriodEnd || date === selectedPeriodEnd || SITUATION_DATES.indexOf(date) < 0) return;
+    if (SITUATION_DATES.indexOf(date) < SITUATION_DATES.indexOf(selectedSituationDate)) {
+      selectedPeriodEnd = date;
+      this.setDate(date);          // moves the start, fires the events and redraws
+      return;
+    }
+    selectedPeriodEnd = date;
+    this.emitPeriod();
     this.refresh();
   }
 
@@ -289,10 +359,13 @@ class YearSlider {
     const previousYear = selectedBorderYear;
     selectedSituationDate = date;
     selectedBorderYear = Number(date.slice(0, 4));
+    // in period mode the end can never be before the start
+    if (selectedPeriodEnd && SITUATION_DATES.indexOf(selectedPeriodEnd) < SITUATION_DATES.indexOf(date)) selectedPeriodEnd = date;
     document.dispatchEvent(new CustomEvent('situationdatechange', { detail: { date, year: selectedBorderYear } }));
     if (selectedBorderYear !== previousYear) {
       document.dispatchEvent(new CustomEvent('borderyearchange', { detail: { year: selectedBorderYear, date } }));
     }
+    if (selectedPeriodEnd) this.emitPeriod();
     this.refresh();
     if (selectedBorderYear !== previousYear) this.onChange();
   }
@@ -300,6 +373,27 @@ class YearSlider {
   refresh() {
     this.slider.value = SITUATION_DATES.indexOf(selectedSituationDate);
     this.tickButtons.forEach(b => b.classList.toggle('active', Number(b.dataset.year) === selectedBorderYear));
+    const last = SITUATION_DATES.length - 1;
+    const a = SITUATION_DATES.indexOf(selectedSituationDate);
+    const on = !!selectedPeriodEnd;
+    this.periodBtn.classList.toggle('on', on);
+    this.periodBtn.setAttribute('aria-pressed', String(on));
+    this.endSlider.hidden = !on;
+    this.fill.hidden = !on;
+    this.el.classList.toggle('timeline-period', on);
+    if (on) {
+      const e = SITUATION_DATES.indexOf(selectedPeriodEnd);
+      this.endSlider.value = e;
+      this.fill.style.setProperty('--a', last ? a / last : 0);
+      this.fill.style.setProperty('--b', last ? e / last : 0);
+      const month = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      const from = document.createElement('strong');
+      from.textContent = month(selectedSituationDate);
+      const to = document.createElement('strong');
+      to.textContent = month(selectedPeriodEnd);
+      this.note.replaceChildren('Period: ', from, ' \u2013 ', to);
+      return;
+    }
     const date = document.createElement('strong');
     date.textContent = situationDateLabel(selectedSituationDate);
     this.note.replaceChildren('Situation on ', date, ' · borders/frontlines update yearly');

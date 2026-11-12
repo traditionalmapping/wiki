@@ -1,0 +1,20 @@
+/* ---------- Video markers on the map: a gold play button instead of a white dot ---------- */
+:root {
+  --play-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M3.3 1.7L8.5 5L3.3 8.3Z' fill='%23151515' stroke='%23151515' stroke-width='.8' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.place-dot {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #0e0e0e;
+  background: #c9a24b var(--play-icon) 55% 50% / 62% no-repeat;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .55);
+}
+.place-dot::before { border-color: rgba(201, 162, 75, .75); }   /* the pulse ring is gold too */
+
+/* zoomed out: the panels collapse to just this marker, slightly bigger so it stays easy to click */
+.labels-off .place-dot {
+  width: 17px;
+  height: 17px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .25), 0 2px 8px rgba(0, 0, 0, .6);
+}
+.labels-off .place-dot:hover { background: #ffd34d var(--play-icon) 55% 50% / 62% no-repeat; }

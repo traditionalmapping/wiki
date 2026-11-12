@@ -156,14 +156,14 @@ const PLACES = [
     coords: '56.95047, 24.11333',
     name: 'Riga',
     videos: [
-      { title: 'WW2: Baltic Offensive Mapped: Every Day', url: 'https://www.youtube.com/watch?v=05lesbm_nTA', date: '1944-09-14 / 1941-12-26' }
+      { title: 'WW2: Baltic Offensive Mapped: Every Day', url: 'https://www.youtube.com/watch?v=05lesbm_nTA', date: '1944-09-14 / 1944-12-26' }
     ]
   },
   {
     coords: '59.93876, 30.31560',
     name: 'Leningrad',
     videos: [
-      { title: 'The War of Annihilation - Siege of Leningrad / Война на Уничтожение - Блокада Ленинграда', url: 'https://www.youtube.com/watch?v=xEuUUYlRGag', date: '1944-06-22 / 1944 -10-01' }
+      { title: 'The War of Annihilation - Siege of Leningrad / Война на Уничтожение - Блокада Ленинграда', url: 'https://www.youtube.com/watch?v=xEuUUYlRGag', date: '1941-06-22 / 1944-10-01' }
     ]
   },
   {
@@ -234,7 +234,7 @@ const PLACES = [
     coords: '57.81733, 28.33387',
     name: 'Pskov',
     videos: [
-      { title: 'Liberation of Pskov: Every Hour | WWII', url: 'https://www.youtube.com/watch?v=7_tx-V7lE1o', date: '1944-07-22 / 1941-07-23' }
+      { title: 'Liberation of Pskov: Every Hour | WWII', url: 'https://www.youtube.com/watch?v=7_tx-V7lE1o', date: '1944-07-22 / 1944-07-23' }
     ]
   },
   {

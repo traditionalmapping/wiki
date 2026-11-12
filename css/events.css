@@ -90,3 +90,15 @@
 .erow-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .erow-title:focus-visible { outline: 2px solid #6aa9ff; outline-offset: 2px; }
 .cfolder.efolder .cfolder-head { color: #c9a24b; }
+
+/* ---------- Videos panel: "only videos from the selected date" ---------- */
+.vdate-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  color: #aaa;
+  font: 12px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+}
+.vdate-filter input { margin: 0; accent-color: #c9a24b; }
